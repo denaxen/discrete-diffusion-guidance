@@ -1,7 +1,7 @@
 # Simple Guidance Mechanisms for Discrete Diffusion Models
 
 [![arXiv](https://img.shields.io/badge/arXiv-2406.07524-red.svg)](# TODO add arxiv link and update badge)
-[![deploy](https://img.shields.io/badge/Blog%20%20-8A2BE2)](https://https://discrete-guidance.github.io/)
+[![deploy](https://img.shields.io/badge/Blog%20%20-8A2BE2)](https://discrete-diffusion-guidance.github.io/)
 <p align="center">
     <img src="https://discrete-guidance.github.io/static/images/udlm.gif" alt="graphical abstract" width="450"/>
 </p>
@@ -215,7 +215,7 @@ Our code implementation of D-CBG is adapted from Nisonoff et al.'s [repo](https:
 # TODO: Update citation
 @article{
     schiff2024discreteguidance,
-    title={Controllable Discrete Diffusion Language Models},
+    title={Simple Guidance Mechanisms for Discrete Diffusion Models},
     author={Schiff, Yair and Sahoo, Subham Sekhar and Phung, Hao and Wang, Guanghan and Boshar, Sam and Dalla-torre, Hugo and de Almeida, Bernardo P and Rush, Alexander and Pierrot, Thomas and Kuleshov, Volodymyr},
     journal={TODO},
     year={2024}
