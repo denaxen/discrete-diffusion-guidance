@@ -8,7 +8,6 @@ import omegaconf
 import rich.syntax
 import rich.tree
 import torch
-import transformers
 from tqdm import tqdm
 
 import classifier
@@ -32,10 +31,14 @@ omegaconf.OmegaConf.register_new_resolver(
 
 
 def _load_from_checkpoint(config, tokenizer):
+  if 'hf' in config.backbone:
+    return diffusion.Diffusion(
+      config, tokenizer=tokenizer).to('cuda')
+
   return diffusion.Diffusion.load_from_checkpoint(
     config.eval.checkpoint_path,
     tokenizer=tokenizer,
-    config=config, logger=False)
+    config=config, logger=False).to('cuda')
 
 
 @L.pytorch.utilities.rank_zero_only
@@ -156,10 +159,8 @@ def _train(config, logger, tokenizer,
 
 
 def _gen_ppl_eval(config, tokenizer):
-  pretrained = diffusion.Diffusion.load_from_checkpoint(
-    config.eval.checkpoint_path,
-    tokenizer=tokenizer,
-    config=config, logger=False)
+  pretrained = _load_from_checkpoint(
+    config=config, tokenizer=tokenizer)
   pretrained.eval()
   samples = []
   for _ in tqdm(range(config.sampling.num_sample_batches),
@@ -168,9 +169,6 @@ def _gen_ppl_eval(config, tokenizer):
     samples.extend(
       pretrained.tokenizer.batch_decode(sample))
 
-  eval_tokenizer = transformers.AutoTokenizer.from_pretrained(
-    config.eval.generative_ppl_model_name_or_path
-  )
   # Replace CLS token with BOS token (if applicable) and
   # remove padding and mask tokens
   tok_bos_token = tokenizer.bos_token if tokenizer.bos_token is not None else tokenizer.cls_token
@@ -215,10 +213,8 @@ def _gen_ppl_eval(config, tokenizer):
 
 def _ppl_eval(config, tokenizer):
   print(f"Evaluating perplexity on {config.data.valid}.")
-  pretrained = diffusion.Diffusion.load_from_checkpoint(
-    config.eval.checkpoint_path,
-    tokenizer=tokenizer,
-    config=config, logger=False).to('cuda')
+  pretrained = _load_from_checkpoint(
+    config=config, tokenizer=tokenizer)
   pretrained.eval()
   if not config.eval.disable_ema:
     pretrained.load_ema_params()

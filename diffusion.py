@@ -133,6 +133,9 @@ class Diffusion(L.LightningModule):
     elif self.config.backbone == 'unet':
       self.backbone = models.unet.UNet(
         self.config, vocab_size=self.vocab_size)
+    elif self.config.backbone == 'hf_dit':
+      self.backbone = transformers.AutoModelForMaskedLM.from_pretrained(
+        config.model.pretrained_model_name_or_path, trust_remote_code=True)
     else:
       raise NotImplementedError(
         f"Backbone {self.config.backbone} not implemented.")

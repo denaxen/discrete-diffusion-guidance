@@ -12,7 +12,8 @@ def compute_ppl(
     val_ds
 ):
   ppl_metrics = diffusion.Perplexity().to('cuda')
-  for batch in tqdm(val_ds, desc='PPL'):
+  pbar = tqdm(val_ds, desc='PPL')
+  for batch in pbar:
     input_ids = batch['input_ids'].to('cuda')
     if 'attention_mask' in batch:
       attention_mask = batch['attention_mask'].to('cuda')
@@ -20,6 +21,7 @@ def compute_ppl(
       attention_mask = None
     losses = pretrained_model._loss(input_ids, attention_mask)
     ppl_metrics.update(losses.nlls, losses.token_mask)
+    pbar.set_postfix({'ppl': ppl_metrics.compute().item()})
   return ppl_metrics.compute().item()
 
 
