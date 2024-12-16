@@ -1,12 +1,12 @@
 # Simple Guidance Mechanisms for Discrete Diffusion Models
 
-[![arXiv](https://img.shields.io/badge/arXiv-2406.07524-red.svg)](# TODO add arxiv link and update badge)
+[![arXiv](https://img.shields.io/badge/arXiv-2412.10193-red.svg)](https://arxiv.org/abs/2412.10193)
 [![deploy](https://img.shields.io/badge/Blog%20%20-8A2BE2)](https://discrete-diffusion-guidance.github.io/)
 <p align="center">
     <img src="https://discrete-guidance.github.io/static/images/udlm.gif" alt="graphical abstract" width="450"/>
 </p>
 
-This repository contains code for reproducing experiments in the paper # [Simple Guidance Mechanisms for Discrete Diffusion Models](#TODO: Add arXiv link)
+This repository contains code for reproducing experiments in the paper # [Simple Guidance Mechanisms for Discrete Diffusion Models](https://arxiv.org/abs/2412.10193)
 
 ## Code Organization
 <a name="code-organization"></a>
@@ -212,12 +212,11 @@ Our code implementation of D-CBG is adapted from Nisonoff et al.'s [repo](https:
 ## Citation
 <a name="citation"></a>
 ```
-# TODO: Update citation
 @article{
     schiff2024discreteguidance,
     title={Simple Guidance Mechanisms for Discrete Diffusion Models},
     author={Schiff, Yair and Sahoo, Subham Sekhar and Phung, Hao and Wang, Guanghan and Boshar, Sam and Dalla-torre, Hugo and de Almeida, Bernardo P and Rush, Alexander and Pierrot, Thomas and Kuleshov, Volodymyr},
-    journal={TODO},
+    journal={arXiv preprint arXiv:2412.10193},
     year={2024}
 }
 ```
