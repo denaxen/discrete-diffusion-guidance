@@ -10,6 +10,8 @@
 #SBATCH --open-mode=append            # Do not overwrite logs
 #SBATCH --requeue                     # Requeue upon preemption
 
+# NOTE: Need to set the (local) dataset path for downloaded cifar-10 data
+DATASET_PATH="<path_to_datasets>"
 
 <<comment
 #  Usage:
@@ -62,8 +64,8 @@ srun python -u -m main \
   time_conditioning=${time_conditioning} \
   zero_recon_loss=${ZERO_RECON_LOSS} \
   data=cifar10 \
-  data.train=/share/kuleshov/datasets/cifar10/ \
-  data.valid=/share/kuleshov/datasets/cifar10/ \
+  data.train=${DATASET_PATH} \
+  data.valid=${DATASET_PATH} \
   loader.global_batch_size=512 \
   loader.eval_global_batch_size=64 \
   backbone=unet \

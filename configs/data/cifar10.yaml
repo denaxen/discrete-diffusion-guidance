@@ -1,5 +1,5 @@
-train: ???
-valid: ???
+train: ???  # (Local) Path to CIFAR-10 training data
+valid: ???  # (Local) Path to CIFAR-10 validation data
 label_col: labels
 num_classes: 10
 streaming: False
