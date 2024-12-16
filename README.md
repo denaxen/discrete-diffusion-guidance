@@ -3,7 +3,7 @@
 [![arXiv](https://img.shields.io/badge/arXiv-2412.10193-red.svg)](https://arxiv.org/abs/2412.10193)
 [![deploy](https://img.shields.io/badge/Blog%20%20-8A2BE2)](https://discrete-diffusion-guidance.github.io/)
 <p align="center">
-    <img src="https://discrete-guidance.github.io/static/images/udlm.gif" alt="graphical abstract" width="450"/>
+    <img src="https://discrete-diffusion-guidance.github.io/static/images/udlm.gif" alt="graphical abstract" width="450"/>
 </p>
 
 This repository contains code for reproducing experiments in the paper # [Simple Guidance Mechanisms for Discrete Diffusion Models](https://arxiv.org/abs/2412.10193)
