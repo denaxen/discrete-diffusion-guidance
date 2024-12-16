@@ -2,11 +2,16 @@
 
 [![arXiv](https://img.shields.io/badge/arXiv-2412.10193-red.svg)](https://arxiv.org/abs/2412.10193)
 [![deploy](https://img.shields.io/badge/Blog%20%20-8A2BE2)](https://discrete-diffusion-guidance.github.io/)
+[![deploy](https://img.shields.io/badge/Huggingface%20-UDLM%20-blue)](https://huggingface.co/collections/kuleshov-group/udlm-675e63ab42bc757093099e1b)
+
 <p align="center">
     <img src="https://discrete-diffusion-guidance.github.io/static/images/udlm.gif" alt="graphical abstract" width="450"/>
 </p>
 
-This repository contains code for reproducing experiments in the paper # [Simple Guidance Mechanisms for Discrete Diffusion Models](https://arxiv.org/abs/2412.10193)
+This repository contains code for reproducing experiments in the paper [Simple Guidance Mechanisms for Discrete Diffusion Models](https://arxiv.org/abs/2412.10193)
+
+We also share [trained models](https://huggingface.co/collections/kuleshov-group/udlm-675e63ab42bc757093099e1b) on HuggingFace 🤗 and support intergration with these models.
+See the "[Using HuggingFace Models" section](#using-huggingface-models) below.
 
 ## Code Organization
 <a name="code-organization"></a>
@@ -202,6 +207,29 @@ done
 Once each evaluation run is complete,
 a `.csv` file
 containing the results is saved in the run directory of the trained generative model.
+
+## Using HuggingFace Models
+<a name="hf_models"></a>
+We provide pre-trained models on HuggingFace 🤗:
+- UDLM trained on LM1B: [kuleshov-group/udlm-lm1b](https://huggingface.co/kuleshov-group/udlm-lm1b)
+- UDLM trained on QM9: [kuleshov-group/udlm-qm9](https://huggingface.co/kuleshov-group/udlm-qm9)
+  - Note: this model was trained without guidance and can be used with classifier-free guidance.
+
+Please see the README pages for these models on HuggingFace or our paper for more details about the training of these models.
+
+To use these models, you can load them using the HuggingFace API, e.g.,
+```python
+from transformers import AutoModelForMaskedLM
+
+model = AutoModelForMaskedLM.from_pretrained("kuleshov-group/udlm-lm1b")
+```
+
+To use these models in our repository, set the following `config` parameters:
+```bash
+backbone="hf_dit"
+model="hf"
+model.pretrained_model_name_or_path="kuleshov-group/udlm-lm1b"  # or "kuleshov-group/udlm-qm9"
+```
 
 ## Acknowledgements
 <a name="acknowledgements"></a>
