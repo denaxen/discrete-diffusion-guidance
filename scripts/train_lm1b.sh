@@ -32,7 +32,7 @@ if [ -z "${MODEL}" ]; then
   echo "MODEL is not set"
   exit 1
 fi
-RUN_NAME="${MODEL}_fix-ema"
+RUN_NAME="${MODEL}"
 
 if [ "${MODEL}" = "ar" ]; then
   # AR

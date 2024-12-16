@@ -104,4 +104,4 @@ srun python -u -m main \
   trainer.max_steps=30_000 \
   trainer.val_check_interval=3_000 \
   wandb.name="ten_species_${RUN_NAME}" \
-  hydra.run.dir="./outputs/ten_species/${RUN_NAME}" \
+  hydra.run.dir="./outputs/ten_species/${RUN_NAME}"
