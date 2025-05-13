@@ -298,8 +298,14 @@ class DDiTBlock(nn.Module):
         dtype=torch.int32, device=qkv.device)
     else:
       cu_seqlens = seqlens.cumsum(-1)
-    x = flash_attn.flash_attn_interface.flash_attn_varlen_qkvpacked_func(
-      qkv, cu_seqlens, seq_len, 0., causal=self.causal)
+    qkv = rearrange(qkv, '(b s) three h d -> b s three h d',
+                    b=batch_size, s=seq_len)
+    q, k, v = qkv.unbind(dim=2)
+    x = torch.nn.functional.scaled_dot_product_attention(
+        q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2),
+        dropout_p=self.dropout if self.training else 0.,
+        is_causal=self.causal).transpose(1, 2)
+    x = x.reshape(batch_size * seq_len, self.n_heads, -1)
 
     x = rearrange(x, '(b s) h d -> b s (h d)', b=batch_size)
 
@@ -445,7 +451,7 @@ class DIT(nn.Module, huggingface_hub.PyTorchModelHubMixin):
         hidden_states.append(x)
       rotary_cos_sin = self.rotary_emb(x)
 
-      with torch.cuda.amp.autocast(dtype=torch.bfloat16):
+      with torch.cuda.amp.autocast(dtype=torch.float16):
         for i in range(len(self.blocks)):
           x = self.blocks[i](x, rotary_cos_sin, c,
                              seqlens=None)

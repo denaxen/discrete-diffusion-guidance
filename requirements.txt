@@ -1,0 +1,6 @@
+lightning
+transformers
+datasets
+timm
+causal-conv1d
+flash-attn==2.7.2.post1

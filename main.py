@@ -16,6 +16,10 @@ import diffusion
 import eval_utils
 import utils
 
+# TD [2025-05-14]: This is a workaround to avoid the issue of forked processes. It worked on restarting the training. Could be fixed by pin_memory=False
+import torch.multiprocessing as mp
+mp.set_start_method("spawn", force=True)
+
 omegaconf.OmegaConf.register_new_resolver(
   'cwd', os.getcwd)
 omegaconf.OmegaConf.register_new_resolver(
