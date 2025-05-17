@@ -52,7 +52,7 @@ python -u -m main \
   data="text8" \
   data.wrap=True \
   data.tokenizer_name_or_path=text8 \
-  loader.global_batch_size=512 \
+  loader.global_batch_size=256 \
   loader.eval_global_batch_size=1024 \
   backbone="dit" \
   model=small \
