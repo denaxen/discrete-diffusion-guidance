@@ -62,7 +62,7 @@ python -u -m main \
   callbacks.checkpoint_every_n_steps.every_n_train_steps=100_000 \
   trainer.log_every_n_steps=100 \
   trainer.max_steps=1_000_000 \
-  trainer.precision=bf16 \
+  trainer.precision=16-mixed \
   trainer.val_check_interval=5_000 \
   +trainer.check_val_every_n_epoch=null \
   eval.generate_samples=True \
