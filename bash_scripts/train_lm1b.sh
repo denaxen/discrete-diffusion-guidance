@@ -51,7 +51,7 @@ python -u -m main \
   data="lm1b" \
   data.wrap=False \
   data.tokenizer_name_or_path=bert-base-uncased \
-  loader.global_batch_size=256 \
+  loader.global_batch_size=512 \
   loader.eval_global_batch_size=1024 \
   loader.batch_size=64 \
   loader.eval_batch_size=128 \
@@ -63,7 +63,7 @@ python -u -m main \
   training.compute_loss_on_pad_tokens=False \
   callbacks.checkpoint_every_n_steps.every_n_train_steps=100_000 \
   trainer.log_every_n_steps=100 \
-  trainer.max_steps=100_000 \
+  trainer.max_steps=1_000_000 \
   trainer.precision=16-mixed \
   trainer.val_check_interval=10_000 \
   eval.generate_samples=True \
