@@ -50,7 +50,6 @@ python -u -m main \
   zero_recon_loss=${ZERO_RECON_LOSS} \
   data="lm1b" \
   data.wrap=False \
-  # data.tokenizer_name_or_path=bert-base-uncased \
   data.tokenizer_name_or_path=gpt2-large \
   loader.global_batch_size=512 \
   loader.eval_global_batch_size=1024 \
@@ -62,7 +61,7 @@ python -u -m main \
   optim.lr=3e-4 \
   training.guidance=null \
   training.compute_loss_on_pad_tokens=False \
-  callbacks.checkpoint_every_n_steps.every_n_train_steps=100_000 \
+  callbacks.checkpoint_every_n_steps.every_n_train_steps=10_000 \
   trainer.log_every_n_steps=100 \
   trainer.max_steps=50_000 \
   trainer.precision=16-mixed \
