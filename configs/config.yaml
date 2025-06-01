@@ -48,6 +48,7 @@ training:
   change_of_variables: False
   compute_loss_on_pad_tokens: False
   use_simple_ce_loss: False  # Ignore ELBO; just use CE
+  label_smoothing: 0.0
   guidance: # Can turn off with `training.guidance: null`
     cond_dropout: 0.0
 
