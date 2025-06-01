@@ -561,16 +561,18 @@ class Diffusion(L.LightningModule):
 
       if self.change_of_variables or self.importance_sampling:
         if self.training and self.config.training.use_simple_ce_loss:
+          loss_ce = self._label_smoothed_nll(model_output, x0)
           return {
           'diffusion_loss': log_p_theta * torch.log1p(-torch.exp(- self.noise.sigma_min)),
-          'loss': -log_p_theta
+          'loss': loss_ce
           }
         return log_p_theta * torch.log1p(-torch.exp(- self.noise.sigma_min))
 
       if self.training and self.config.training.use_simple_ce_loss:
+        loss_ce = self._label_smoothed_nll(model_output, x0)
         return {
           'diffusion_loss': log_p_theta * (dsigma / torch.expm1(sigma))[:, None],
-          'loss': log_p_theta
+          'loss': loss_ce
         }
       return - log_p_theta * (dsigma / torch.expm1(sigma))[:, None]
 
@@ -612,13 +614,11 @@ class Diffusion(L.LightningModule):
       reconstruction_loss = self._reconstruction_loss(
         x0, cond=cond)
       if self.training and self.config.training.use_simple_ce_loss:
+        loss_ce = self._label_smoothed_nll(model_output, x0)
         return {
           'recon_loss': reconstruction_loss,
           'diffusion_loss': diffusion_loss,
-          'loss': -torch.gather(
-            input=model_output,
-            dim=-1,
-            index=x0[:, :, None]).squeeze(-1)
+          'loss': loss_ce
         }
       return {
         'recon_loss': reconstruction_loss,
