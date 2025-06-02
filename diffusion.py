@@ -396,8 +396,8 @@ class Diffusion(L.LightningModule):
     alpha_s = 1 - (t - dt) + torch.zeros_like(xt)
 
     if self.diffusion == 'absorbing_state':
-      log_x_theta_at_x0 = torch.gather(
-        model_output, -1, x0[:, :, None]).squeeze(-1)
+      x_smooth = self._smooth_one_hot(x0)
+      log_x_theta_at_x0 = (model_output * x_smooth).sum(-1)
       log_x_theta_at_m = model_output[:, :, self.mask_index]
       x_theta_at_m = log_x_theta_at_m.exp()
 
@@ -415,8 +415,9 @@ class Diffusion(L.LightningModule):
 
       L_vb = L_vb_masked * (xt == self.mask_index)
     elif self.diffusion == 'uniform':
+      x_smooth = self._smooth_one_hot(x0).to(self.dtype)
       posterior = self._compute_posterior(
-        x=F.one_hot(x0, num_classes=self.vocab_size).to(self.dtype),
+        x=x_smooth,
         xt=xt,
         alpha_s=alpha_s[..., None],
         alpha_t=alpha_t[..., None])
@@ -443,9 +444,14 @@ class Diffusion(L.LightningModule):
     time_conditioning = self.noise(t0)[0][:, None]
     model_output_t0 = self.forward(x0, time_conditioning,
                                    cond=cond)
-    return - torch.gather(input=model_output_t0,
-                          dim=-1,
-                          index=x0[:, :, None]).squeeze(-1)
+    # return - torch.gather(input=model_output_t0,
+    #                       dim=-1,
+    #                       index=x0[:, :, None]).squeeze(-1)
+    return self._nll_loss(model_output_t0, x0)
+
+  def _smooth_one_hot(self, x: torch.LongTensor):
+    x_one_hot = F.one_hot(x, self.vocab_size).to(torch.float32)
+    return x_one_hot * (1.0 - self.label_smoothing) + self.label_smoothing / (self.vocab_size - 1)
 
   def _nll_loss(self, model_output, x0):
     eps = self.label_smoothing
@@ -549,10 +555,8 @@ class Diffusion(L.LightningModule):
     # Continuous (T --> infty) time
     if self.diffusion == 'absorbing_state':
       # SUBS parameterization, continuous time.
-      log_p_theta = torch.gather(
-        input=model_output,
-        dim=-1,
-        index=x0[:, :, None]).squeeze(-1)
+      x_smooth = self._smooth_one_hot(x0)
+      log_p_theta = (model_output * x_smooth).sum(-1)
 
       if self.change_of_variables or self.importance_sampling:
         if self.training and self.config.training.use_simple_ce_loss:
@@ -582,7 +586,8 @@ class Diffusion(L.LightningModule):
       alpha_t = 1. - t[..., None, None]  # B, 1, 1
 
       # x_bar = N * α_t * x + 1 - α_t ; B, L, V
-      x_bar = self.vocab_size * alpha_t * F.one_hot(x0, self.vocab_size).float() + 1 - alpha_t
+      x_smooth = self._smooth_one_hot(x0).to(self.dtype)
+      x_bar = self.vocab_size * alpha_t * x_smooth + 1 - alpha_t
       x_bar_theta = self.vocab_size * alpha_t * model_output.exp() + 1 - alpha_t
 
       # α_t' / (N*α_t)
@@ -670,8 +675,9 @@ class Diffusion(L.LightningModule):
     if self.parameterization == 'ar':
       logprobs = self.forward(
         input_tokens, sigma=None, cond=cond)
-      loss = - logprobs.gather(
-        -1, output_tokens[:, :, None])[:, :, 0]
+      # TODO: is smoothing correct here?
+      x_smooth = _smooth_one_hot(output_tokens, self.label_smoothing, self.vocab_size)
+      loss = -(logprobs * x_smooth).sum(-1)
     else:
       loss = self._forward_pass_diffusion(input_tokens,
                                           cond=cond)
