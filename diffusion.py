@@ -676,7 +676,7 @@ class Diffusion(L.LightningModule):
       logprobs = self.forward(
         input_tokens, sigma=None, cond=cond)
       # TODO: is smoothing correct here?
-      x_smooth = _smooth_one_hot(output_tokens, self.label_smoothing, self.vocab_size)
+      x_smooth = self._smooth_one_hot(output_tokens)
       loss = -(logprobs * x_smooth).sum(-1)
     else:
       loss = self._forward_pass_diffusion(input_tokens,
