@@ -61,11 +61,11 @@ python -u -m main \
   optim.lr=3e-4 \
   training.guidance=null \
   training.compute_loss_on_pad_tokens=False \
-  callbacks.checkpoint_every_n_steps.every_n_train_steps=10_000 \
+  callbacks.checkpoint_every_n_steps.every_n_train_steps=5_000 \
   trainer.log_every_n_steps=100 \
   trainer.max_steps=10_000 \
   trainer.precision=16-mixed \
-  trainer.val_check_interval=10_000 \
+  trainer.val_check_interval=5_000 \
   eval.generate_samples=True \
   sampling.num_sample_batches=1 \
   sampling.batch_size=2 \
