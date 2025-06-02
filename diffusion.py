@@ -382,22 +382,6 @@ class Diffusion(L.LightningModule):
     raise NotImplementedError(
       f"Diffusion type {self.diffusion} not implemented.")
 
-  def _label_smoothed_nll(self, log_probs: Tensor, targets: Tensor) -> Tensor:
-    """
-    log_probs  : (B, L, V)   — log-softmax output of the model
-    targets    : (B, L)      — ground-truth token ids
-    returns    : (B, L)      — per-token loss with ε-label smoothing
-    """
-    eps = self.config.training.label_smoothing
-    V   = log_probs.size(-1)
-    # Negative log-prob for the correct token
-    nll = -log_probs.gather(-1, targets.unsqueeze(-1)).squeeze(-1)
-    if eps == 0.0:
-        return nll
-    # Uniform contribution
-    smooth_nll = -log_probs.mean(dim=-1)
-    return (1 - eps) * nll + eps * smooth_nll
-
   def _d3pm_loss(self, model_output, xt, x0, t):
     assert self.config.noise.type == 'loglinear', (
       'D3PM loss only implemented for log-linear noise.')
@@ -530,7 +514,10 @@ class Diffusion(L.LightningModule):
         reconstruction_loss = self._reconstruction_loss(
           x0, cond=cond)
         if self.training and self.config.training.use_simple_ce_loss:
-          loss = self._label_smoothed_nll(model_output, x0)
+          loss = -torch.gather(
+            input=model_output,
+            dim=-1,
+            index=x0[:, :, None]).squeeze(-1)
         else:
           loss = reconstruction_loss + diffusion_loss
         return {
@@ -539,11 +526,10 @@ class Diffusion(L.LightningModule):
           'loss': loss}
       elif self.parameterization == 'subs':
         if self.training and self.config.training.use_simple_ce_loss:
-          # loss = -torch.gather(
-          #   input=model_output,
-          #   dim=-1,
-          #   index=x0[:, :, None]).squeeze(-1)
-          loss = self._label_smoothed_nll(model_output, x0)
+          loss = -torch.gather(
+            input=model_output,
+            dim=-1,
+            index=x0[:, :, None]).squeeze(-1)
         else:
           loss = diffusion_loss
         return {'diffusion_loss': diffusion_loss, 'loss': loss}
@@ -561,18 +547,16 @@ class Diffusion(L.LightningModule):
 
       if self.change_of_variables or self.importance_sampling:
         if self.training and self.config.training.use_simple_ce_loss:
-          loss_ce = self._label_smoothed_nll(model_output, x0)
           return {
           'diffusion_loss': log_p_theta * torch.log1p(-torch.exp(- self.noise.sigma_min)),
-          'loss': loss_ce
+          'loss': -log_p_theta
           }
         return log_p_theta * torch.log1p(-torch.exp(- self.noise.sigma_min))
 
       if self.training and self.config.training.use_simple_ce_loss:
-        loss_ce = self._label_smoothed_nll(model_output, x0)
         return {
           'diffusion_loss': log_p_theta * (dsigma / torch.expm1(sigma))[:, None],
-          'loss': loss_ce
+          'loss': log_p_theta
         }
       return - log_p_theta * (dsigma / torch.expm1(sigma))[:, None]
 
@@ -614,11 +598,13 @@ class Diffusion(L.LightningModule):
       reconstruction_loss = self._reconstruction_loss(
         x0, cond=cond)
       if self.training and self.config.training.use_simple_ce_loss:
-        loss_ce = self._label_smoothed_nll(model_output, x0)
         return {
           'recon_loss': reconstruction_loss,
           'diffusion_loss': diffusion_loss,
-          'loss': loss_ce
+          'loss': -torch.gather(
+            input=model_output,
+            dim=-1,
+            index=x0[:, :, None]).squeeze(-1)
         }
       return {
         'recon_loss': reconstruction_loss,
@@ -678,9 +664,8 @@ class Diffusion(L.LightningModule):
     if self.parameterization == 'ar':
       logprobs = self.forward(
         input_tokens, sigma=None, cond=cond)
-      # loss = - logprobs.gather(
-      #   -1, output_tokens[:, :, None])[:, :, 0]
-      loss = self._label_smoothed_nll(logprobs, output_tokens)
+      loss = - logprobs.gather(
+        -1, output_tokens[:, :, None])[:, :, 0]
     else:
       loss = self._forward_pass_diffusion(input_tokens,
                                           cond=cond)
