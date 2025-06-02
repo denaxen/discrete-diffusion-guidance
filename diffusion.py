@@ -142,6 +142,7 @@ class Diffusion(L.LightningModule):
 
     self.lr = self.config.optim.lr
     self.sampling_eps = config.training.sampling_eps
+    self.label_smoothing = config.training.label_smoothing
 
     self.softplus = torch.nn.Softplus()
     self.neg_infinity = -1_000_000.0
@@ -446,6 +447,20 @@ class Diffusion(L.LightningModule):
                           dim=-1,
                           index=x0[:, :, None]).squeeze(-1)
 
+  def _nll_loss(self, model_output, x0):
+    eps = self.label_smoothing
+    V = self.vocab_size
+    log_p_true = torch.gather(
+        input=model_output,
+        dim=-1,
+        index=x0[:, :, None]
+    ).squeeze(-1)
+    nll = -log_p_true
+    sum_all_log = model_output.sum(dim=-1)
+    smooth_loss = -sum_all_log + log_p_true
+    loss = (1.0 - eps) * nll + (eps / (V - 1)) * smooth_loss
+    return loss
+
   def _sample_t(self, n):
     _eps_t = torch.rand(n, device=self.device)
     if self.antithetic_sampling:
@@ -514,10 +529,7 @@ class Diffusion(L.LightningModule):
         reconstruction_loss = self._reconstruction_loss(
           x0, cond=cond)
         if self.training and self.config.training.use_simple_ce_loss:
-          loss = -torch.gather(
-            input=model_output,
-            dim=-1,
-            index=x0[:, :, None]).squeeze(-1)
+          loss = self._nll_loss(model_output, x0)
         else:
           loss = reconstruction_loss + diffusion_loss
         return {
@@ -526,10 +538,7 @@ class Diffusion(L.LightningModule):
           'loss': loss}
       elif self.parameterization == 'subs':
         if self.training and self.config.training.use_simple_ce_loss:
-          loss = -torch.gather(
-            input=model_output,
-            dim=-1,
-            index=x0[:, :, None]).squeeze(-1)
+          loss = self._nll_loss(model_output, x0)
         else:
           loss = diffusion_loss
         return {'diffusion_loss': diffusion_loss, 'loss': loss}
@@ -601,10 +610,7 @@ class Diffusion(L.LightningModule):
         return {
           'recon_loss': reconstruction_loss,
           'diffusion_loss': diffusion_loss,
-          'loss': -torch.gather(
-            input=model_output,
-            dim=-1,
-            index=x0[:, :, None]).squeeze(-1)
+          'loss': self._nll_loss(model_output, x0)
         }
       return {
         'recon_loss': reconstruction_loss,
