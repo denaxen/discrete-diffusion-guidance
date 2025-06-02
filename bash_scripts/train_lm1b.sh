@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# TODO: increase checkpoint interval to 10k in large scale experiments
+
 # Setup environment
 # cd ../ || exit  # Go to the root directory of the repo
 export NCCL_P2P_LEVEL=NVL
@@ -61,7 +63,7 @@ python -u -m main \
   optim.lr=3e-4 \
   training.guidance=null \
   training.compute_loss_on_pad_tokens=False \
-  callbacks.checkpoint_every_n_steps.every_n_train_steps=10_000 \
+  callbacks.checkpoint_every_n_steps.every_n_train_steps=1_000 \
   trainer.log_every_n_steps=100 \
   trainer.max_steps=10_000 \
   trainer.precision=16-mixed \
