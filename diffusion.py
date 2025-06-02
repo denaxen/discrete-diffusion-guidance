@@ -800,11 +800,14 @@ class Diffusion(L.LightningModule):
         self.noise.parameters()))
 
   def on_validation_epoch_start(self):
+    self._label_smoothing_backup = self.label_smoothing
+    self.label_smoothing = 0
     self.load_ema_params()
     assert self.valid_metrics.nll.mean_value == 0
     assert self.valid_metrics.nll.weight == 0
 
   def on_validation_epoch_end(self):
+    self.label_smoothing = self._label_smoothing_backup
     self._restore_non_ema_params()
     if (not self.trainer.sanity_checking
         and self.config.eval.generate_samples
