@@ -1,3 +1,18 @@
+Example with runai for myself:
+
+```
+runai submit \
+  --name udlm-lm1b \
+  --image registry.rcp.epfl.ch/claire/likhobab/diffusion-llms-project:amd64-cuda-likhobab-latest \
+  --pvc claire-scratch:/claire-rcp-scratch \
+  --working-dir /claire-rcp-scratch/home/likhobab/udlm/run \
+  -e PROJECT_ROOT_AT=/claire-rcp-scratch/home/likhobab/udlm/run \
+  -e SKIP_INSTALL_PROJECT=1 \
+  -e WANDB_API_KEY_FILE_AT=/claire-rcp-scratch/home/likhobab/.wandb_api_key \
+  -g 1 --cpu 8 --cpu-limit 8 --memory 64G --memory-limit 64G \
+  -- MODEL=udlm bash train_lm1b.sh
+```
+
 # Simple Guidance Mechanisms for Discrete Diffusion Models
 
 [![arXiv](https://img.shields.io/badge/arXiv-2412.10193-red.svg)](https://arxiv.org/abs/2412.10193)
