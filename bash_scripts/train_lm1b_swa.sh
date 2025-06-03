@@ -11,7 +11,7 @@ if [ -z "${MODEL}" ]; then
   echo "MODEL is not set"
   exit 1
 fi
-RUN_NAME="${MODEL} no ema"
+RUN_NAME="${MODEL} swa"
 
 if [ "${MODEL}" = "ar" ]; then
   # AR
@@ -61,7 +61,7 @@ python -u -m main \
   optim.lr=3e-4 \
   training.guidance=null \
   training.compute_loss_on_pad_tokens=False \
-  weights_averaging.type=none \
+  weights_averaging=swa \
   callbacks.checkpoint_every_n_steps.every_n_train_steps=10_000 \
   trainer.log_every_n_steps=100 \
   trainer.max_steps=10_000 \

@@ -8,6 +8,7 @@ defaults:
   - /lr_scheduler: constant_warmup
   - /classifier_model: null
   - /guidance: null
+  - /weights_averaging: ema
 
 mode: train  # train / train_classifier / ppl_eval
 diffusion: absorbing_state
@@ -41,7 +42,6 @@ sampling:
   use_float64: False
 
 training:
-  ema: 0.9999
   antithetic_sampling: True
   importance_sampling: False
   sampling_eps: 1e-3

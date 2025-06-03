@@ -1,0 +1,4 @@
+# Stochastic Weight Averaging (dimension-less schedule)
+type: swa
+start_pct: 0.6                # start after 60 % of optimiser steps
+num_snapshots: 25             # collect ~25 models → auto-compute freq
