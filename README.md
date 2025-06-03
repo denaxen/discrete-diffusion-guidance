@@ -10,7 +10,8 @@ runai submit \
   -e SKIP_INSTALL_PROJECT=1 \
   -e WANDB_API_KEY_FILE_AT=/claire-rcp-scratch/home/likhobab/.wandb_api_key \
   -g 1 --cpu 8 --cpu-limit 8 --memory 64G --memory-limit 64G \
-  -- MODEL=udlm bash train_lm1b.sh
+  -e MODEL=udlm \
+  -- bash train_lm1b.sh
 ```
 
 # Simple Guidance Mechanisms for Discrete Diffusion Models
