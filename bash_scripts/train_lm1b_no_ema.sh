@@ -61,7 +61,7 @@ python -u -m main \
   optim.lr=3e-4 \
   training.guidance=null \
   training.compute_loss_on_pad_tokens=False \
-  training.ema=0 \
+  weights_averaging.type=none \
   callbacks.checkpoint_every_n_steps.every_n_train_steps=10_000 \
   trainer.log_every_n_steps=100 \
   trainer.max_steps=10_000 \

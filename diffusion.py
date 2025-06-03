@@ -147,13 +147,19 @@ class Diffusion(L.LightningModule):
     self.softplus = torch.nn.Softplus()
     self.neg_infinity = -1_000_000.0
 
-    if config.training.ema > 0:
-      self.ema = models.ema.ExponentialMovingAverage(
-        itertools.chain(self.backbone.parameters(),
-                        self.noise.parameters()),
-        decay=config.training.ema)
-    else:
+    if config.weights_averaging.type == 'ema':
+      if config.weights_averaging.decay > 0:
+        self.ema = models.ema.ExponentialMovingAverage(
+          itertools.chain(self.backbone.parameters(),
+                          self.noise.parameters()),
+          decay=config.weights_averaging.decay)
+      else:
+        self.ema = None
+    elif config.weights_averaging.type == 'none':
       self.ema = None
+    else:
+      raise NotImplementedError(
+        f"Averaging type {config.weights_averaging.type} not implemented.")
 
     # metrics are automatically reset at end of epoch
     metrics = torchmetrics.MetricCollection({
