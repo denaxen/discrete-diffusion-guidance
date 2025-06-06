@@ -149,6 +149,12 @@ def _lcsc_search(config, tokenizer):
     # Evaluate on test set (lm1b test)
     logger.info('Evaluating merged model on LM1B test set.')
     model = diffusion.Diffusion(config, tokenizer=tokenizer)
+    
+    # Handle the limiting_distribution buffer that's not in combined checkpoints
+    # but is required by the model (it gets recreated during normal Lightning loading)
+    if hasattr(model, 'limiting_distribution') and model.limiting_distribution is not None:
+        merged_state['limiting_distribution'] = model.limiting_distribution
+    
     model.load_state_dict(merged_state, strict=True)
     model.eval()
 
