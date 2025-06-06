@@ -1,5 +1,6 @@
 import json
 import os
+import glob
 
 import fsspec
 import hydra
@@ -15,6 +16,7 @@ import dataloader
 import diffusion
 import eval_utils
 import utils
+import lcsc
 
 # TD [2025-05-14]: This is a workaround to avoid the issue of forked processes. It worked on restarting the training. Could be fixed by pin_memory=False
 import torch.multiprocessing as mp
@@ -93,6 +95,78 @@ def _print_batch(train_ds, valid_ds, tokenizer, k=64):
     print('ids:', first)
     print(f'Last {k} tokens:', tokenizer.decode(last))
     print('ids:', last)
+
+def _lcsc_search(config, tokenizer):
+    """Run evolutionary search to merge checkpoints with LCSC and report metric.
+    https://arxiv.org/pdf/2404.02241
+    Expects `config.lcsc` section with:
+        metric:    one of {'ppl', 'gen_ppl', 'entropy'}
+        output_ckpt: path to save merged state_dict
+    """
+    logger = utils.get_logger('LCSC')
+
+    # Initialize wandb if configured
+    if config.get('wandb', None) is not None:
+        import wandb
+        wandb.init(
+            project=config.wandb.project,
+            name=config.wandb.name,
+            job_type=config.wandb.job_type,
+            config=omegaconf.OmegaConf.to_object(config),
+            tags=config.wandb.get('tags', [])
+        )
+
+    # Use checkpoints folder from the output directory instead of requiring ckpt_glob
+    checkpoints_dir = os.path.join(config.checkpointing.save_dir, "checkpoints")
+    if not os.path.exists(checkpoints_dir):
+        raise ValueError(f'Checkpoints directory not found: {checkpoints_dir}')
+    
+    logger.info(f'Finding checkpoints in {checkpoints_dir}')
+    # Find all checkpoint files, excluding last.ckpt and best.ckpt
+    all_ckpt_files = glob.glob(os.path.join(checkpoints_dir, "*.ckpt"))
+    ckpt_paths = []
+    for ckpt_path in all_ckpt_files:
+        ckpt_name = os.path.basename(ckpt_path)
+        if ckpt_name not in ["last.ckpt", "best.ckpt"]:
+            ckpt_paths.append(ckpt_path)
+    
+    ckpt_paths = sorted(ckpt_paths)
+    if len(ckpt_paths) < 3:
+        raise ValueError(f'LCSC requires at least 3 checkpoints, found {len(ckpt_paths)} '
+                        f'(excluding last.ckpt and best.ckpt)')
+    logger.info(f'Found {len(ckpt_paths)} checkpoints to merge (excluding last.ckpt and best.ckpt).')
+
+    best_alpha, best_score = lcsc.run_lcsc(
+        ckpt_paths=ckpt_paths,
+        config=config,
+        tokenizer=tokenizer,
+    )
+
+    merged_state = lcsc.combine_checkpoints(ckpt_paths, best_alpha)
+    torch.save(merged_state, config.lcsc.output_ckpt)
+    logger.info(f'Saved merged checkpoint to {config.lcsc.output_ckpt}')
+
+    # Evaluate on test set (lm1b test)
+    logger.info('Evaluating merged model on LM1B test set.')
+    model = diffusion.Diffusion(config, tokenizer=tokenizer)
+    model.load_state_dict(merged_state, strict=True)
+    model.eval()
+
+    _, test_ds = dataloader.get_dataloaders(
+        config, tokenizer, skip_train=True, valid_seed=config.seed, test_split=True)
+    ppl = eval_utils.compute_ppl(model.to('cuda'), test_ds)
+    logger.info(f'TEST PPL: {ppl:.3f}')
+    
+    # Log final results to wandb
+    if config.get('wandb', None) is not None:
+        wandb.log({
+            'lcsc/best_validation_score': best_score,
+            'lcsc/test_ppl': ppl,
+            'lcsc/num_checkpoints': len(ckpt_paths)
+        })
+        wandb.finish()
+    
+    print(f'Best alpha: {best_alpha}\nValidation score: {best_score:.4f}\nTest PPL: {ppl:.3f}')
 
 
 def _train(config, logger, tokenizer,
@@ -243,6 +317,8 @@ def main(config):
     _gen_ppl_eval(config, tokenizer)
   elif config.mode == 'ppl_eval':
     _ppl_eval(config, tokenizer)
+  elif config.mode == 'lcsc':
+    _lcsc_search(config, tokenizer)
   elif 'train' in config.mode:
     _train(config, logger, tokenizer,
            train_classifier='classifier' in config.mode)
