@@ -67,8 +67,8 @@ python -u -m main \
     checkpointing.save_dir="${CKPT}" \
     +lcsc.metric="ppl" \
     +lcsc.output_ckpt="${CKPT}/merged_lcsc.ckpt" \
-    +lcsc.population_size=1 \
-    +lcsc.top_k=1 \
+    +lcsc.population_size=2 \
+    +lcsc.top_k=2 \
     +lcsc.iterations=1 \
     +lcsc.mutation_sigma=0.0 \
     +lcsc.offspring_per_iter=1 \
