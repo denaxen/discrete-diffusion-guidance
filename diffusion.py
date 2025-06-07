@@ -47,6 +47,7 @@ class Loss:
   token_mask: torch.FloatTensor
   recon_loss: typing.Optional[torch.FloatTensor] = None
   diffusion_loss: typing.Optional[torch.FloatTensor] = None
+  unroll_loss: typing.Optional[torch.FloatTensor] = None
 
 
 class NLL(torchmetrics.aggregation.MeanMetric):
@@ -757,16 +758,13 @@ class Diffusion(L.LightningModule):
         aux_loss = self.config.training.unrolling_weight * ce_unroll
         total_loss = loss['loss'] + aux_loss
 
-        loss['unroll_loss'] = (aux_loss * attention_mask).sum() / attention_mask.sum()
+        loss['unroll_loss'] = aux_loss
         loss['loss'] = total_loss
 
       if isinstance(loss, dict):
-        if self.config.training.unrolling and self.config.training.unrolling_ignore_diffusion_loss:
-          recon_loss = None
-          diffusion_loss = None
-        else:
-          recon_loss = loss['recon_loss']
-          diffusion_loss = loss['diffusion_loss']
+        recon_loss = loss.get('recon_loss', None)
+        diffusion_loss = loss.get('diffusion_loss', None)
+        unroll_loss = loss.get('unroll_loss', None)
         loss = loss['loss']
 
     nlls = loss * attention_mask
@@ -779,18 +777,26 @@ class Diffusion(L.LightningModule):
       batch_nll = nlls.sum()
       token_nll = batch_nll / count
 
-    if recon_loss is not None and diffusion_loss is not None:
+    # Prepare optional loss components
+    recon_loss_batch = None
+    diffusion_loss_batch = None
+    unroll_loss_batch = None
+    
+    if recon_loss is not None:
       with torch.no_grad():
         recon_loss_batch = (recon_loss * attention_mask).sum() / count
+    if diffusion_loss is not None:
+      with torch.no_grad():
         diffusion_loss_batch = (diffusion_loss * attention_mask).sum() / count
-      return Loss(loss=token_nll,
-                  nlls=nlls,
-                  token_mask=attention_mask,
-                  recon_loss=recon_loss_batch,
-                  diffusion_loss=diffusion_loss_batch)
+    if unroll_loss is not None:
+      unroll_loss_batch = (unroll_loss * attention_mask).sum() / count
+    
     return Loss(loss=token_nll,
                 nlls=nlls,
-                token_mask=attention_mask)
+                token_mask=attention_mask,
+                recon_loss=recon_loss_batch,
+                diffusion_loss=diffusion_loss_batch,
+                unroll_loss=unroll_loss_batch)
 
   def _compute_loss(self, batch, prefix):
     if 'attention_mask' in batch:
@@ -849,8 +855,16 @@ class Diffusion(L.LightningModule):
                on_epoch=False,
                sync_dist=True,
                prog_bar=False)
+    if losses.diffusion_loss is not None:
       self.log(name='trainer/diffusion_loss',
                value=losses.diffusion_loss.item(),
+               on_step=True,
+               on_epoch=False,
+               sync_dist=True,
+               prog_bar=False)
+    if losses.unroll_loss is not None:
+      self.log(name='trainer/unroll_loss',
+               value=losses.unroll_loss.item(),
                on_step=True,
                on_epoch=False,
                sync_dist=True,
