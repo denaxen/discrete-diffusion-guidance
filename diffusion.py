@@ -687,6 +687,27 @@ class Diffusion(L.LightningModule):
       new_attention_mask = attention_mask
     return input_tokens, output_tokens, new_attention_mask
 
+  def _k_step_ce(self, xt, x0, time_cond, K, cond=None):
+    """
+    Cross-entropy the model would incur after K iterative denoise steps
+    starting from xt ~ q(x_t | x0) with time condition `time_cond`.
+
+    Returns:
+        ce_map : (B, L) token-wise CE averaged over the K steps
+    """
+    x_prev = xt
+    ce_acc = torch.zeros_like(
+        self._nll_loss(self.forward(xt, time_cond, cond=cond), x0)
+    )
+
+    for _ in range(K):
+        logits_k = self.forward(x_prev, time_cond, cond=cond)
+        ce_acc += self._nll_loss(logits_k, x0)
+        with torch.no_grad():
+            x_prev = _sample_categorical(logits_k.exp()).detach()
+
+    return ce_acc / K
+
   def _loss(self, x0, attention_mask, cond=None):
     (input_tokens, output_tokens,
      attention_mask) = self._maybe_sub_sample(
@@ -714,6 +735,31 @@ class Diffusion(L.LightningModule):
     else:
       loss = self._forward_pass_diffusion(input_tokens,
                                           cond=cond)
+
+      if (self.training
+        and self.config.training.unrolling
+        and not self.config.training.unrolling_ignore_diffusion_loss
+        and self.config.training.unrolling_steps > 1):
+
+        t  = self._sample_t(input_tokens.size(0))
+        sigma, _ = self.noise(t)
+        time_cond = sigma[:, None]
+        move_chance = 1 - torch.exp(-sigma)[:, None]
+
+        xt = self._q_xt(input_tokens, move_chance)
+
+        ce_unroll = self._k_step_ce(
+            xt, input_tokens, time_cond,
+            K=self.config.training.unrolling_steps,
+            cond=cond
+        )
+
+        aux_loss = self.config.training.unrolling_weight * ce_unroll
+        total_loss = loss['loss'] + aux_loss
+
+        loss['unroll_loss'] = (aux_loss * attention_mask).sum() / attention_mask.sum()
+        loss['loss'] = total_loss
+
       if isinstance(loss, dict):
         if self.config.training.unrolling and self.config.training.unrolling_ignore_diffusion_loss:
           recon_loss = None
