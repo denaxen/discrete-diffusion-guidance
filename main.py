@@ -159,7 +159,7 @@ def _lcsc_search(config, tokenizer):
     model.eval()
 
     _, test_ds = dataloader.get_dataloaders(
-        config, tokenizer, skip_train=True, valid_seed=config.seed, test_split=True)
+        config, tokenizer, skip_train=True, valid_seed=config.seed)
     ppl = eval_utils.compute_ppl(model.to('cuda'), test_ds)
     logger.info(f'TEST PPL: {ppl:.3f}')
     
