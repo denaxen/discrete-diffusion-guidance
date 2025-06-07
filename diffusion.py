@@ -714,7 +714,7 @@ class Diffusion(L.LightningModule):
      attention_mask) = self._maybe_sub_sample(
       x0, attention_mask)
 
-    recon_loss, diffusion_loss = None, None
+    recon_loss, diffusion_loss, unroll_loss = None, None, None
 
     if (cond is not None and self.training
         and self.config.training.guidance is not None
@@ -789,7 +789,8 @@ class Diffusion(L.LightningModule):
       with torch.no_grad():
         diffusion_loss_batch = (diffusion_loss * attention_mask).sum() / count
     if unroll_loss is not None:
-      unroll_loss_batch = (unroll_loss * attention_mask).sum() / count
+      with torch.no_grad():
+        unroll_loss_batch = (unroll_loss * attention_mask).sum() / count
     
     return Loss(loss=token_nll,
                 nlls=nlls,
