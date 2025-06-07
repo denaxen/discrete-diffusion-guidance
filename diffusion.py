@@ -540,6 +540,23 @@ class Diffusion(L.LightningModule):
       move_chance = 1 - torch.exp(-sigma[:, None])
 
     xt = self._q_xt(x0, move_chance)
+
+    if self.training and self.config.training.unrolling and self.config.training.unrolling_ignore_diffusion_loss:
+      # perform K-step unrolled CE
+      x_prev      = xt
+      loss_acc_map = torch.zeros_like(self._nll_loss(
+        self.forward(xt, time_conditioning, cond=cond), x0))
+      K = self.config.training.unrolling_steps
+      for _ in range(K):
+        logits_k    = self.forward(x_prev, time_conditioning, cond=cond)
+        loss_map_k  = self._nll_loss(logits_k, x0)      # [B, L]
+        loss_acc_map += loss_map_k
+        with torch.no_grad():
+          x_prev = _sample_categorical(logits_k.exp()).detach()
+      loss_map = loss_acc_map / K
+      # return only CE-based loss_map; downstream wraps & averages
+      return {'loss': loss_map}
+
     model_output = self.forward(xt, time_conditioning,
                                 cond=cond)
 
@@ -698,8 +715,12 @@ class Diffusion(L.LightningModule):
       loss = self._forward_pass_diffusion(input_tokens,
                                           cond=cond)
       if isinstance(loss, dict):
-        recon_loss = loss['recon_loss']
-        diffusion_loss = loss['diffusion_loss']
+        if self.config.training.unrolling and self.config.training.unrolling_ignore_diffusion_loss:
+          recon_loss = None
+          diffusion_loss = None
+        else:
+          recon_loss = loss['recon_loss']
+          diffusion_loss = loss['diffusion_loss']
         loss = loss['loss']
 
     nlls = loss * attention_mask

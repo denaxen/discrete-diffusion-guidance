@@ -42,6 +42,9 @@ sampling:
   use_float64: False
 
 training:
+  unrolling: False
+  unrolling_steps: 2
+  unrolling_ignore_diffusion_loss: False
   antithetic_sampling: True
   importance_sampling: False
   sampling_eps: 1e-3
