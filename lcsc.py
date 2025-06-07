@@ -3,7 +3,7 @@
 This module can be imported by main.py as `import lcsc`.
 The public API is:
     run_lcsc(ckpt_paths, config, tokenizer) -> (best_alpha, best_score)
-    combine_checkpoints(ckpt_paths, alphas) -> OrderedDict state_dict
+    combine_checkpoints_diff(ckpt_paths, alphas) -> OrderedDict state_dict
 
 All functions are Torch-only and require no Lightning context.
 """
@@ -15,6 +15,7 @@ from collections import OrderedDict
 
 import torch
 from torch.utils.data import DataLoader
+from functools import lru_cache
 
 import diffusion
 import dataloader
@@ -25,6 +26,7 @@ import utils
 #  Core helpers
 # ----------------------------------------
 
+@lru_cache(maxsize=None)
 def _load_state(path: str):
     checkpoint = torch.load(path, map_location='cpu')
     # Lightning checkpoints have the model state dict under 'state_dict' key
@@ -34,22 +36,18 @@ def _load_state(path: str):
         # If it's already a state dict (not a Lightning checkpoint)
         return checkpoint
 
-
-def combine_checkpoints(ckpt_paths: List[str], alphas: List[float]):
-    """Return a merged state_dict as linear combination of checkpoints."""
-    assert len(ckpt_paths) == len(alphas), 'alpha length mismatch'
-    states = [_load_state(p) for p in ckpt_paths]
+def combine_checkpoints_diff(paths, alphas):
+    """θ̂ = Σ αᵢ θᵢ  (all tensors on CPU)."""
+    assert len(paths) == len(alphas), "len(paths) != len(alphas)"
+    states = [_load_state(p) for p in paths]
+    base = states[0]
     mixed = OrderedDict()
-    
-    for k in states[0].keys():
-        # Check if the value is a tensor that can be combined
-        if isinstance(states[0][k], torch.Tensor):
-            # Combine tensors using weighted average
-            mixed[k] = sum(a * s[k] for a, s in zip(alphas, states))
+    for k in base:
+        if isinstance(base[k], torch.Tensor):
+            diff_sum = sum(a*(s[k]-base[k]) for a,s in zip(alphas[1:], states[1:]))
+            mixed[k] = base[k] + diff_sum
         else:
-            # For non-tensor values (strings, ints, lists, etc.), just take from first checkpoint
-            mixed[k] = states[0][k]
-    
+            mixed[k] = base[k]
     return mixed
 
 
@@ -66,7 +64,7 @@ def _fitness(alphas: List[float], ckpt_paths: List[str], config, tokenizer, cach
     if key in cache:
         return cache[key]
 
-    state_dict = combine_checkpoints(ckpt_paths, alphas)
+    state_dict = combine_checkpoints_diff(ckpt_paths, alphas)
 
     # Build model and load mixed state
     model = diffusion.Diffusion(config, tokenizer=tokenizer).to('cuda')
@@ -80,27 +78,28 @@ def _fitness(alphas: List[float], ckpt_paths: List[str], config, tokenizer, cach
     model.eval()
 
     # Choose metric
-    if config.lcsc.metric == 'ppl':
-        _, val_ds = dataloader.get_dataloaders(config, tokenizer, skip_train=True, valid_seed=config.seed, force_val=True)
-        metric_value = eval_utils.compute_ppl(model, val_ds)
-    elif config.lcsc.metric == 'gen_ppl':
-        samples = []
-        for _ in range(config.lcsc.num_sample_batches):
-            sample = model.sample()
-            samples.extend(model.tokenizer.batch_decode(sample))
-        metric_value = eval_utils.compute_generative_ppl(samples, eval_model_name_or_path=config.eval.generative_ppl_model_name_or_path,
-                                                         gen_ppl_eval_batch_size=8, max_length=config.model.length)
-    elif config.lcsc.metric == 'entropy':
-        samples = []
-        for _ in range(config.lcsc.num_sample_batches):
-            sample = model.sample()
-            samples.extend(model.tokenizer.batch_decode(sample))
-        tokens = tokenizer.batch_encode_plus(samples, return_tensors='pt', add_special_tokens=False,
-                                             max_length=config.model.length, padding='max_length', truncation=True)['input_ids']
-        _, counts = torch.unique(tokens, return_counts=True, sorted=False)
-        metric_value = torch.special.entr(counts.float() / counts.sum()).sum().item()
-    else:
-        raise ValueError(f"Unknown LCSC metric {config.lcsc.metric}")
+    with torch.inference_mode():
+        if config.lcsc.metric == 'ppl':
+            _, val_ds = dataloader.get_dataloaders(config, tokenizer, skip_train=True, valid_seed=config.seed, force_val=True)
+            metric_value = eval_utils.compute_ppl(model, val_ds)
+        elif config.lcsc.metric == 'gen_ppl':
+            samples = []
+            for _ in range(config.lcsc.num_sample_batches):
+                sample = model.sample()
+                samples.extend(model.tokenizer.batch_decode(sample))
+            metric_value = eval_utils.compute_generative_ppl(samples, eval_model_name_or_path=config.eval.generative_ppl_model_name_or_path,
+                                                            gen_ppl_eval_batch_size=8, max_length=config.model.length)
+        elif config.lcsc.metric == 'entropy':
+            samples = []
+            for _ in range(config.lcsc.num_sample_batches):
+                sample = model.sample()
+                samples.extend(model.tokenizer.batch_decode(sample))
+            tokens = tokenizer.batch_encode_plus(samples, return_tensors='pt', add_special_tokens=False,
+                                                max_length=config.model.length, padding='max_length', truncation=True)['input_ids']
+            _, counts = torch.unique(tokens, return_counts=True, sorted=False)
+            metric_value = -torch.special.entr(counts.float() / counts.sum()).sum().item()
+        else:
+            raise ValueError(f"Unknown LCSC metric {config.lcsc.metric}")
 
     cache[key] = metric_value
     torch.cuda.empty_cache()

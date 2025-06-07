@@ -132,11 +132,10 @@ def _lcsc_search(config, tokenizer):
     
     # Sort by modification time (most recent first) and limit to max_checkpoints
     max_checkpoints = config.lcsc.max_checkpoints
-    ckpt_paths = sorted(ckpt_paths, key=lambda x: os.path.getmtime(x), reverse=True)
+    ckpt_paths = sorted(ckpt_paths, key=lambda x: os.path.getmtime(x), reverse=True)[:max_checkpoints]
     
-    if len(ckpt_paths) > max_checkpoints:
-        logger.info(f'Found {len(ckpt_paths)} checkpoints, limiting to most recent {max_checkpoints}')
-        ckpt_paths = ckpt_paths[:max_checkpoints]
+    # Reverse to have oldest first for LCSC
+    ckpt_paths = ckpt_paths[::-1]
     
     if len(ckpt_paths) < 3:
         raise ValueError(f'LCSC requires at least 3 checkpoints, found {len(ckpt_paths)} '
