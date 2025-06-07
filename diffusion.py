@@ -761,11 +761,11 @@ class Diffusion(L.LightningModule):
         loss['unroll_loss'] = aux_loss
         loss['loss'] = total_loss
 
-      if isinstance(loss, dict):
-        recon_loss = loss.get('recon_loss', None)
-        diffusion_loss = loss.get('diffusion_loss', None)
-        unroll_loss = loss.get('unroll_loss', None)
-        loss = loss['loss']
+    if isinstance(loss, dict):
+      recon_loss = loss.get('recon_loss', None)
+      diffusion_loss = loss.get('diffusion_loss', None)
+      unroll_loss = loss.get('unroll_loss', None)
+      loss = loss['loss']
 
     nlls = loss * attention_mask
     count = attention_mask.sum()
