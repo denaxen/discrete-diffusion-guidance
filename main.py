@@ -130,11 +130,18 @@ def _lcsc_search(config, tokenizer):
         if ckpt_name not in ["last.ckpt", "best.ckpt"]:
             ckpt_paths.append(ckpt_path)
     
-    ckpt_paths = sorted(ckpt_paths)
+    # Sort by modification time (most recent first) and limit to max_checkpoints
+    max_checkpoints = config.lcsc.max_checkpoints
+    ckpt_paths = sorted(ckpt_paths, key=lambda x: os.path.getmtime(x), reverse=True)
+    
+    if len(ckpt_paths) > max_checkpoints:
+        logger.info(f'Found {len(ckpt_paths)} checkpoints, limiting to most recent {max_checkpoints}')
+        ckpt_paths = ckpt_paths[:max_checkpoints]
+    
     if len(ckpt_paths) < 3:
         raise ValueError(f'LCSC requires at least 3 checkpoints, found {len(ckpt_paths)} '
                         f'(excluding last.ckpt and best.ckpt)')
-    logger.info(f'Found {len(ckpt_paths)} checkpoints to merge (excluding last.ckpt and best.ckpt).')
+    logger.info(f'Using {len(ckpt_paths)} checkpoints for LCSC merging (most recent {len(ckpt_paths)} out of available checkpoints).')
 
     best_alpha, best_score = lcsc.run_lcsc(
         ckpt_paths=ckpt_paths,

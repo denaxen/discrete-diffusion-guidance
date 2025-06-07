@@ -67,6 +67,7 @@ python -u -m main \
     checkpointing.save_dir="${CKPT}" \
     +lcsc.metric="ppl" \
     +lcsc.output_ckpt="${CKPT}/merged_lcsc.ckpt" \
+    +lcsc.max_checkpoints=25 \
     +lcsc.population_size=10 \
     +lcsc.top_k=3 \
     +lcsc.iterations=5 \
