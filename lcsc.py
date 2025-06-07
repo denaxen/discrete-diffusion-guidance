@@ -37,17 +37,25 @@ def _load_state(path: str):
         return checkpoint
 
 def combine_checkpoints_diff(paths, alphas):
-    """θ̂ = Σ αᵢ θᵢ  (all tensors on CPU)."""
-    assert len(paths) == len(alphas), "len(paths) != len(alphas)"
     states = [_load_state(p) for p in paths]
     base = states[0]
+    all_keys = set().union(*(st.keys() for st in states))
     mixed = OrderedDict()
-    for k in base:
-        if isinstance(base[k], torch.Tensor):
-            diff_sum = sum(a*(s[k]-base[k]) for a,s in zip(alphas[1:], states[1:]))
-            mixed[k] = base[k] + diff_sum
-        else:
-            mixed[k] = base[k]
+
+    for k in all_keys:
+        base_v = base.get(k)
+        if not isinstance(base_v, torch.Tensor):
+            # If θ₀ lacks this param, treat its value as zeros on same device/dtype
+            ref = next((s[k] for s in states[1:] if isinstance(s.get(k), torch.Tensor)), None)
+            if ref is None:
+                continue                      # non-tensor buffer we can ignore
+            base_v = torch.zeros_like(ref)
+
+        diff = torch.zeros_like(base_v)
+        for i, alpha in enumerate(alphas, 1):
+            v_i = states[i].get(k, base_v)
+            diff += alpha * (v_i - base_v)
+        mixed[k] = base_v + diff
     return mixed
 
 
@@ -64,10 +72,15 @@ def _fitness(alphas: List[float], ckpt_paths: List[str], config, tokenizer, cach
     if key in cache:
         return cache[key]
 
+    # ensure deterministic cache key
+    torch.manual_seed(int(sum(alphas)*1e6) ^ config.seed)
     state_dict = combine_checkpoints_diff(ckpt_paths, alphas)
 
     # Build model and load mixed state
-    model = diffusion.Diffusion(config, tokenizer=tokenizer).to('cuda')
+    # reuse a persistent model stub to reduce GPU OOM
+    if not hasattr(_fitness, "_proto"):
+        _fitness._proto = diffusion.Diffusion(config, tokenizer=tokenizer).to('cuda')
+    model = _fitness._proto
     
     # Handle the limiting_distribution buffer that's not in combined checkpoints
     # but is required by the model (it gets recreated during normal Lightning loading)
@@ -105,20 +118,26 @@ def _fitness(alphas: List[float], ckpt_paths: List[str], config, tokenizer, cach
     torch.cuda.empty_cache()
     return metric_value
 
+def _clip_extreme(a, max_l2=5.0):
+    # scale only if vector length is crazy large
+    norm = math.sqrt(sum(x*x for x in a))
+    if norm > max_l2:
+        a = [x * max_l2 / norm for x in a]
+    return a
 
 def _init_population(K: int, pop_size: int) -> List[List[float]]:
-    """Initialize population with diversified EMA-like alphas."""
+    """
+    Initialize population of K-1 alphas (for ckpts 1..K-1), base α₀ implicit.
+    """
     population = []
     ema_rates = [0.9, 0.95, 0.97, 0.99, 0.995]
-    for g in ema_rates:
-        alpha = [g ** (K - 1 - i) for i in range(K)]
-        s = sum(alpha)
-        population.append([a / s for a in alpha])
+    for gamma in ema_rates:
+        # αᵢ = γ^(K-1-i) for i=1..K-1
+        raw = [gamma ** (K-1-i) for i in range(1, K)]
+        population.append(_clip_extreme(raw))
     while len(population) < pop_size:
-        # random dirichlet (+/- noise)
-        alpha = torch.randn(K).tolist()
-        s = sum(alpha)
-        population.append([a / s for a in alpha])
+        raw = torch.randn(K-1).tolist()
+        population.append(_clip_extreme(raw))
     return population[:pop_size]
 
 
@@ -131,12 +150,13 @@ def run_lcsc(*, ckpt_paths: List[str], config, tokenizer) -> Tuple[List[float], 
 
     K = len(ckpt_paths)
     POP = config.lcsc.population_size
-    TOP = config.lcsc.top_k
+    TOP = max(2, config.lcsc.top_k or int(0.3*POP))
     ITER = config.lcsc.iterations
     MUT_SIGMA = config.lcsc.mutation_sigma
     OFFSPRING = config.lcsc.offspring_per_iter
 
     population = _init_population(K, POP)
+    population.insert(0, [0.0]*(K-1))
     cache = {}
 
     # Evaluate initial population
@@ -155,9 +175,10 @@ def run_lcsc(*, ckpt_paths: List[str], config, tokenizer) -> Tuple[List[float], 
             child = [(x if random.random() < 0.5 else y) for x, y in zip(p1, p2)]
             # mutation
             child = [a + random.gauss(0, MUT_SIGMA) for a in child]
-            # renormalize to sum 1
             s = sum(child)
-            child = [a / s for a in child]
+            if s != 0:
+                child = [a / s for a in child]
+            child = _clip_extreme(child)
             offspring.append(child)
 
         # Evaluate offspring

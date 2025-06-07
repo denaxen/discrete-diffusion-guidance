@@ -148,7 +148,7 @@ def _lcsc_search(config, tokenizer):
         tokenizer=tokenizer,
     )
 
-    merged_state = lcsc.combine_checkpoints(ckpt_paths, best_alpha)
+    merged_state = lcsc.combine_checkpoints_diff(ckpt_paths, best_alpha)
     torch.save(merged_state, config.lcsc.output_ckpt)
     logger.info(f'Saved merged checkpoint to {config.lcsc.output_ckpt}')
 
