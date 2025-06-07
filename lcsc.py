@@ -81,7 +81,7 @@ def _fitness(alphas: List[float], ckpt_paths: List[str], config, tokenizer, cach
 
     # Choose metric
     if config.lcsc.metric == 'ppl':
-        _, val_ds = dataloader.get_dataloaders(config, tokenizer, skip_train=True, valid_seed=config.seed)
+        _, val_ds = dataloader.get_dataloaders(config, tokenizer, skip_train=True, valid_seed=config.seed, force_val=True)
         metric_value = eval_utils.compute_ppl(model, val_ds)
     elif config.lcsc.metric == 'gen_ppl':
         samples = []

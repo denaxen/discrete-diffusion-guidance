@@ -242,10 +242,17 @@ def get_dataset(
       label_suffix += f'_threshold-{label_threshold}'
   else:
     label_suffix = ''
-  if wrap:
-    filename = f'{dataset_name}_{mode}_bs{block_size}_wrapped{label_suffix}.dat'
+    
+  # Special filename for lm1b validation split to avoid conflicts
+  if dataset_name == 'lm1b' and mode == 'validation':
+    dataset_name_for_cache = 'lm1b-val'
   else:
-    filename = f'{dataset_name}_{mode}_bs{block_size}_unwrapped{label_suffix}.dat'
+    dataset_name_for_cache = dataset_name
+    
+  if wrap:
+    filename = f'{dataset_name_for_cache}_{mode}_bs{block_size}_wrapped{label_suffix}.dat'
+  else:
+    filename = f'{dataset_name_for_cache}_{mode}_bs{block_size}_unwrapped{label_suffix}.dat'
   _path = os.path.join(cache_dir, filename)
   if utils.fsspec_exists(_path) and not override_cache:
     LOGGER.info(f'Loading data from: {_path}')
@@ -299,7 +306,42 @@ def get_dataset(
       cache_dir=cache_dir,
       streaming=streaming)
 
-  if dataset_name == 'qm9':
+  # Special handling for lm1b: create validation split from train split
+  if dataset_name == 'lm1b' and mode in ['train', 'validation']:
+    # Check if we already have the splits cached
+    lm1b_train_cache = os.path.join(cache_dir, 'lm1b_train_split.dat')
+    lm1b_val_cache = os.path.join(cache_dir, 'lm1b_val_split.dat')
+    
+    if (utils.fsspec_exists(lm1b_train_cache) and 
+        utils.fsspec_exists(lm1b_val_cache) and 
+        not override_cache):
+      # Load cached splits
+      if mode == 'train':
+        data = datasets.load_from_disk(lm1b_train_cache)
+      else:  # mode == 'validation'
+        data = datasets.load_from_disk(lm1b_val_cache)
+    else:
+      # Create the splits
+      LOGGER.info('Creating lm1b train/validation split (300K samples for validation)')
+      full_train = dataset['train']
+      LOGGER.info(f'Original lm1b train set size: {len(full_train)} samples')
+      
+      # Use reproducible split with seed=42
+      train_val_split = full_train.train_test_split(
+        test_size=300000,  # 300K samples for validation
+        seed=42,
+        shuffle=True)
+      
+      # Save the splits to cache
+      train_val_split['train'].save_to_disk(lm1b_train_cache)
+      train_val_split['test'].save_to_disk(lm1b_val_cache)  # 'test' contains the validation split
+      LOGGER.info(f'Split created - Train: {len(train_val_split["train"])} samples, Validation: {len(train_val_split["test"])} samples')
+      
+      if mode == 'train':
+        data = train_val_split['train']
+      else:  # mode == 'validation'
+        data = train_val_split['test']
+  elif dataset_name == 'qm9':
     data = dataset
   else:
     data = dataset[mode]
@@ -444,7 +486,7 @@ def get_tokenizer(config):
 
 
 def get_dataloaders(config, tokenizer, skip_train=False,
-                    skip_valid=False, valid_seed=None):
+                    skip_valid=False, valid_seed=None, force_val=False):
   num_gpus = torch.cuda.device_count()
   assert (config.loader.global_batch_size
           == (config.loader.batch_size
@@ -485,6 +527,8 @@ def get_dataloaders(config, tokenizer, skip_train=False,
     'text8', 'lm1b', 'amazon_polarity', 'qm9',
     'ten_species']:
     validation_split = 'test'
+    if force_val and config.data.valid == 'lm1b':
+      validation_split = 'validation'  # For lm1b, this uses the 300K samples split from train
   else:
     validation_split = 'validation'
   if skip_valid:
