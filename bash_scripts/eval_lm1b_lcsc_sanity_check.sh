@@ -66,7 +66,7 @@ python -u -m main \
     T=${TRAIN_T} \
     checkpointing.save_dir="${CKPT}" \
     +lcsc.metric="ppl" \
-    +lcsc.output_ckpt="${CKPT}/merged_lcsc.ckpt" \
+    +lcsc.output_ckpt="${CKPT}/merged_lcsc_sc.ckpt" \
     +lcsc.max_checkpoints=25 \
     +lcsc.population_size=2 \
     +lcsc.top_k=2 \
@@ -76,4 +76,4 @@ python -u -m main \
     +lcsc.num_sample_batches=1 \
     +eval.generative_ppl_model_name_or_path="gpt2-large" \
     wandb.job_type="lcsc" \
-    wandb.name="lm1b_lcsc_${MODEL}"
+    wandb.name="lm1b_lcsc_${MODEL}_sanity_check"
