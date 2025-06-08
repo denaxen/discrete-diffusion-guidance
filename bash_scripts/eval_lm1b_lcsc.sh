@@ -68,12 +68,12 @@ python -u -m main \
     +lcsc.metric="ppl" \
     +lcsc.output_ckpt="${CKPT}/merged_lcsc.ckpt" \
     +lcsc.max_checkpoints=25 \
-    +lcsc.population_size=10 \
-    +lcsc.top_k=3 \
-    +lcsc.iterations=5 \
+    +lcsc.population_size=20 \
+    +lcsc.top_k=5 \
+    +lcsc.iterations=10 \
     +lcsc.mutation_sigma=0.1 \
-    +lcsc.offspring_per_iter=5 \
-    +lcsc.num_sample_batches=2 \
+    +lcsc.offspring_per_iter=10 \
+    +lcsc.num_sample_batches=16 \
     +eval.generative_ppl_model_name_or_path="gpt2-large" \
     wandb.job_type="lcsc" \
     wandb.name="lm1b_lcsc_${MODEL}"
