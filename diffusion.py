@@ -740,7 +740,7 @@ class Diffusion(L.LightningModule):
       if (self.training
         and self.config.training.unrolling
         and not self.config.training.unrolling_ignore_diffusion_loss
-        and self.config.training.unrolling_steps > 1):
+        and self.config.training.unrolling_steps > 0):
 
         t  = self._sample_t(input_tokens.size(0))
         sigma, _ = self.noise(t)
@@ -756,10 +756,19 @@ class Diffusion(L.LightningModule):
         )
 
         aux_loss = self.config.training.unrolling_weight * ce_unroll
-        total_loss = loss['loss'] + aux_loss
-
-        loss['unroll_loss'] = aux_loss
-        loss['loss'] = total_loss
+        
+        # Handle both tensor and dict cases for loss
+        if isinstance(loss, dict):
+          total_loss = loss['loss'] + aux_loss
+          loss['unroll_loss'] = aux_loss
+          loss['loss'] = total_loss
+        else:
+          # loss is a tensor, convert to dict format
+          total_loss = loss + aux_loss
+          loss = {
+            'loss': total_loss,
+            'unroll_loss': aux_loss
+          }
 
     if isinstance(loss, dict):
       recon_loss = loss.get('recon_loss', None)
