@@ -249,6 +249,16 @@ def _train(config, logger, tokenizer,
 
 
 def _gen_ppl_eval(config, tokenizer):
+  # Initialize wandb if configured
+  if config.get('wandb', None) is not None:
+      import wandb
+      wandb.init(
+          project=config.wandb.project,
+          name=config.wandb.name,
+          job_type=config.wandb.job_type,
+          config=omegaconf.OmegaConf.to_object(config),
+          tags=config.wandb.get('tags', [])
+      )
   pretrained = _load_from_checkpoint(
     config=config, tokenizer=tokenizer)
   pretrained.eval()
