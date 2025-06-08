@@ -7,13 +7,15 @@
 export NCCL_P2P_LEVEL=NVL
 export HYDRA_FULL_ERROR=1
 
+USTEPS="${1:-2}"
+
 # Expecting:
 #  - MODEL (ar, mdlm, udlm)
 if [ -z "${MODEL}" ]; then
   echo "MODEL is not set"
   exit 1
 fi
-RUN_NAME="${MODEL}_unrolling"
+RUN_NAME="${MODEL}_unrolling ${USTEPS}"
 
 if [ "${MODEL}" = "ar" ]; then
   # AR
@@ -65,7 +67,7 @@ python -u -m main \
   training.compute_loss_on_pad_tokens=False \
   training.unrolling=True \
   training.unrolling_ignore_diffusion_loss=False \
-  training.unrolling_steps=2 \
+  training.unrolling_steps=${USTEPS} \
   callbacks.checkpoint_every_n_steps.every_n_train_steps=1_000 \
   trainer.log_every_n_steps=100 \
   trainer.max_steps=10_000 \
