@@ -16,7 +16,7 @@ if [ -z "${MODEL}" ]; then
   echo "MODEL is not set"
   exit 1
 fi
-RUN_NAME="${MODEL} ns ${NOISE_SCHEDULE_FRACTION}"
+RUN_NAME="${MODEL} nsu ${NOISE_SCHEDULE_FRACTION}"
 
 if [ "${MODEL}" = "ar" ]; then
   # AR
