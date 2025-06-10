@@ -557,6 +557,12 @@ class Diffusion(L.LightningModule):
                 on_epoch=False,
                 sync_dist=True,
                 prog_bar=False)
+      self.log(name='mean_move_chance',
+                value=move_chance.mean().item(),
+                on_step=True,
+                on_epoch=False,
+                sync_dist=True,
+                prog_bar=False)
 
     xt = self._q_xt(x0, move_chance)
 
