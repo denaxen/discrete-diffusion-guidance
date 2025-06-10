@@ -539,6 +539,24 @@ class Diffusion(L.LightningModule):
       sigma, dsigma = self.noise(t)
       time_conditioning = sigma[:, None]
       move_chance = 1 - torch.exp(-sigma[:, None])
+    
+    if self.config.training.noise_schedule_warmup:
+      current_step = self.global_step
+      warmup_fraction = float(self.config.training.noise_schedule_warmup_fraction)
+      max_steps = int(self.config.trainer.max_steps)
+      warmup_steps = int(max_steps * warmup_fraction)
+      if current_step < warmup_steps:
+        move_chance_cap = current_step / warmup_steps
+        if not self.config.training.noise_schedule_uniform:
+          move_chance = torch.minimum(move_chance, torch.tensor(move_chance_cap, device=move_chance.device))
+        else:
+          move_chance = move_chance * move_chance_cap
+      self.log(name='max_move_chance',
+                value=max(move_chance).item(),
+                on_step=True,
+                on_epoch=False,
+                sync_dist=True,
+                prog_bar=False)
 
     xt = self._q_xt(x0, move_chance)
 
