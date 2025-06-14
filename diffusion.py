@@ -710,6 +710,18 @@ class Diffusion(L.LightningModule):
       input_tokens = x0
       output_tokens = None
       new_attention_mask = attention_mask
+    if (self.training and
+      self.config.training.flexible_length and
+      np.random.random() < self.config.training.change_length_batches_frac):
+      new_length = np.random.randint(2, min(self.config.model.length, input_tokens.shape[1]))
+      input_tokens = input_tokens[:, :new_length]
+      new_attention_mask = new_attention_mask[:, :new_length]
+      if output_tokens is not None:
+        output_tokens = output_tokens[:, :new_length]
+        output_tokens[:, -1] = self.tokenizer.eos_token_id
+      else:
+        input_tokens[:, -1] = self.tokenizer.eos_token_id
+      
     return input_tokens, output_tokens, new_attention_mask
 
   def _k_step_ce(self, xt, x0, time_cond, K, cond=None):

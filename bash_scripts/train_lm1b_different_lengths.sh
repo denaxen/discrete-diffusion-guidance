@@ -7,13 +7,15 @@
 export NCCL_P2P_LEVEL=NVL
 export HYDRA_FULL_ERROR=1
 
+FRAC="${1:-0.01}"
+
 # Expecting:
 #  - MODEL (ar, mdlm, udlm)
 if [ -z "${MODEL}" ]; then
   echo "MODEL is not set"
   exit 1
 fi
-RUN_NAME="${MODEL}"
+RUN_NAME="${MODEL} lengths ${FRAC}"
 
 if [ "${MODEL}" = "ar" ]; then
   # AR
@@ -23,6 +25,7 @@ if [ "${MODEL}" = "ar" ]; then
   TIME_COND=False
   ZERO_RECON_LOSS=False
   sampling_use_cache=False
+  CKPT="${PWD}/outputs/lm1b/ar"
 elif [ "${MODEL}" = "mdlm" ]; then
   # MDLM
   DIFFUSION="absorbing_state"
@@ -31,6 +34,7 @@ elif [ "${MODEL}" = "mdlm" ]; then
   TIME_COND=False
   ZERO_RECON_LOSS=False
   sampling_use_cache=True
+  CKPT="${PWD}/outputs/lm1b/mdlm"
 elif [ "${MODEL}" = "udlm" ]; then
   # UDLM
   DIFFUSION="uniform"
@@ -39,6 +43,7 @@ elif [ "${MODEL}" = "udlm" ]; then
   TIME_COND=True
   ZERO_RECON_LOSS=True
   sampling_use_cache=False
+  CKPT="${PWD}/outputs/lm1b/udlm"
 else
   echo "MODEL must be one of ar, mdlm, udlm"
   exit 1
@@ -63,11 +68,15 @@ python -u -m main \
   optim.lr=3e-4 \
   training.guidance=null \
   training.compute_loss_on_pad_tokens=False \
+  training.flexible_length=True \
+  training.change_length_batches_frac=${FRAC} \
   callbacks.checkpoint_every_n_steps.every_n_train_steps=1_000 \
   trainer.log_every_n_steps=100 \
-  trainer.max_steps=10_000 \
+  trainer.max_steps=100 \
   trainer.val_check_interval=10_000 \
   eval.generate_samples=True \
+  eval.checkpoint_path="${CKPT}/checkpoints/last.ckpt" \
+  +eval.lengths="[8, 16, 32, 64, 128]" \
   sampling.num_sample_batches=1 \
   sampling.batch_size=2 \
   sampling.use_cache=${sampling_use_cache} \

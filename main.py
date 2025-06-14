@@ -325,6 +325,12 @@ def _ppl_eval(config, tokenizer):
   print(f"PPL: {ppl:0.3f}")
 
 
+def _lengths_eval(config, tokenizer):
+  for length in config.eval.lengths:
+    config.model.length = length
+    print(f"========== EVAL LENGTH: {length} ==========")
+    _ppl_eval(config, tokenizer)
+
 @hydra.main(version_base=None, config_path='configs',
             config_name='config')
 def main(config):
@@ -344,6 +350,20 @@ def main(config):
   elif 'train' in config.mode:
     _train(config, logger, tokenizer,
            train_classifier='classifier' in config.mode)
+    if config.training.flexible_length:
+      # make config as in the eval script, as we do this after training
+      config.loader.eval_global_batch_size = 512
+      config.loader.batch_size = 512
+      config.loader.eval_batch_size = 64
+
+      config.sampling.use_cache = True
+      config.sampling.batch_size = 64
+      config.sampling.num_sample_batches = 2
+
+      config.eval.generate_samples = False
+      _lengths_eval(config, tokenizer)
+  elif config.mode == 'lengths_eval':
+    _lengths_eval(config, tokenizer)
   else:
     raise NotImplementedError(f"Mode {config.mode} not implemented.")
 
