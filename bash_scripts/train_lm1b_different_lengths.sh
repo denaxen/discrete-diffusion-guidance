@@ -72,7 +72,7 @@ python -u -m main \
   training.change_length_batches_frac=${FRAC} \
   callbacks.checkpoint_every_n_steps.every_n_train_steps=1_000 \
   trainer.log_every_n_steps=100 \
-  trainer.max_steps=100 \
+  trainer.max_steps=10_000 \
   trainer.val_check_interval=10_000 \
   eval.generate_samples=True \
   eval.checkpoint_path="${CKPT}/checkpoints/last.ckpt" \
