@@ -1034,7 +1034,7 @@ class Diffusion(L.LightningModule):
     If ``config.eval.low_confidence_sampling`` is set, restrict sampling to the
     bottom ``eval.low_confidence_threshold`` cumulative probability mass.
     """
-    if getattr(self.config.eval, 'low_confidence_sampling', False):
+    if self.config.eval.low_confidence_sampling:
       probs = log_probs.softmax(dim=-1)
       sorted_probs, sorted_idx = probs.sort(dim=-1)
       cum_probs = sorted_probs.cumsum(dim=-1)
