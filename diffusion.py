@@ -27,13 +27,6 @@ import noise_schedule
 LOG2 = math.log(2)
 
 
-def _sample_categorical(categorical_probs):
-  gumbel_norm = (
-    1e-10
-    - (torch.rand_like(categorical_probs) + 1e-10).log()).to(categorical_probs.dtype)
-  return (categorical_probs / gumbel_norm).argmax(dim=-1)
-
-
 def _unsqueeze(x, reference):
   return x.view(
     * x.shape,
@@ -577,7 +570,7 @@ class Diffusion(L.LightningModule):
         loss_map_k  = self._nll_loss(logits_k, x0)      # [B, L]
         loss_acc_map += loss_map_k
         with torch.no_grad():
-          x_prev = _sample_categorical(logits_k.exp()).detach()
+          x_prev = self._sample_categorical(logits_k.exp()).detach()
       loss_map = loss_acc_map / K
       # return only CE-based loss_map; downstream wraps & averages
       return {'loss': loss_map}
@@ -741,7 +734,7 @@ class Diffusion(L.LightningModule):
         logits_k = self.forward(x_prev, time_cond, cond=cond)
         ce_acc += self._nll_loss(logits_k, x0)
         with torch.no_grad():
-            x_prev = _sample_categorical(logits_k.exp()).detach()
+            x_prev = self._sample_categorical(logits_k.exp()).detach()
 
     return ce_acc / K
 
@@ -1417,7 +1410,7 @@ class Diffusion(L.LightningModule):
         f"Diffusion type {self.diffusion} not implemented.")
 
     # Sample from posterior
-    xs = _sample_categorical(q_xs)
+    xs = self._sample_categorical(q_xs)
     if self.diffusion == 'absorbing_state':
       copy_flag = (xt != self.mask_index).to(torch.bool)
       q_xs[copy_flag] = 0.0
@@ -1505,7 +1498,7 @@ class Diffusion(L.LightningModule):
           f"Diffusion type {self.diffusion} not implemented.")
 
     # Sample from posterior
-    xs = _sample_categorical(q_xs)
+    xs = self._sample_categorical(q_xs)
     if self.diffusion == 'absorbing_state':
       copy_flag = (xt != self.mask_index).to(torch.bool)
       q_xs[copy_flag] = 0.0
@@ -1623,9 +1616,10 @@ class Diffusion(L.LightningModule):
 
     guided_probs = guided_log_probs.softmax(dim=-1)
     # Sample from guided posterior
-    xs = _sample_categorical(guided_probs)
+    xs = self._sample_categorical(guided_probs)
     if self.diffusion == 'absorbing_state':
       xs = torch.where(copy_flag.to(bool), xt, xs)
+
     return xs, guided_probs, {'log_x_theta': log_x_theta,
                               'classifier_log_prob': classifier_log_prob}
 
@@ -1735,8 +1729,23 @@ class Diffusion(L.LightningModule):
       raise NotImplementedError(
         f"Diffusion type {self.diffusion} not implemented.")
 
-    xs = _sample_categorical(guided_probs)
+    xs = self._sample_categorical(guided_probs)
     if self.diffusion == 'absorbing_state':
       xs = torch.where(copy_flag, xt, xs)
 
     return xs, guided_probs, None
+
+  def _sample_categorical(self, probs: torch.Tensor) -> torch.Tensor:
+    if (hasattr(self.config, 'eval') and
+        getattr(self.config.eval, 'low_confidence_sampling', False)):
+        sorted_probs, sorted_idx = probs.sort(dim=-1)
+        cum_probs = sorted_probs.cumsum(dim=-1)
+        mask_sorted = cum_probs <= self.config.eval.low_confidence_threshold
+        mask = torch.zeros_like(mask_sorted, device=probs.device)
+        mask.scatter_(dim=-1, index=sorted_idx, src=mask_sorted)
+        probs = probs.masked_fill(~mask, 0.0)
+
+    gumbel_norm = (
+      1e-10
+      - (torch.rand_like(probs) + 1e-10).log()).to(probs.dtype)
+    return (probs / gumbel_norm).argmax(dim=-1)
