@@ -359,13 +359,32 @@ def _ppl_eval_all(config, tokenizer):
       continue
     print(f"========== MODEL: {model} ==========")
     try:
-      if config.eval.low_confidence_sampling:
+      if config.eval.low_confidence_sampling and not config.eval.argmax_sampling:
         # Evaluate standard perplexity first
         config.eval.low_confidence_sampling = False
         _ppl_eval(config, tokenizer)
         print("----- LOW CONFIDENCE PPL -----")
         config.eval.low_confidence_sampling = True
         _ppl_eval(config, tokenizer)
+      elif config.eval.argmax_sampling and not config.eval.low_confidence_sampling:
+        config.eval.argmax_sampling = False
+        _ppl_eval(config, tokenizer)
+        print("----- ARGMAX PPL -----")
+        config.eval.argmax_sampling = True
+        _ppl_eval(config, tokenizer)
+      elif config.eval.low_confidence_sampling and config.eval.argmax_sampling:
+        config.eval.low_confidence_sampling = False
+        config.eval.argmax_sampling = False
+        _ppl_eval(config, tokenizer)
+        print("----- LOW CONFIDENCE PPL -----")
+        config.eval.low_confidence_sampling = True
+        config.eval.argmax_sampling = False
+        _ppl_eval(config, tokenizer)
+        print("----- ARGMAX PPL -----")
+        config.eval.low_confidence_sampling = False
+        config.eval.argmax_sampling = True
+        _ppl_eval(config, tokenizer)
+        config.eval.low_confidence_sampling = True
       else:
         _ppl_eval(config, tokenizer)
     except Exception as e:

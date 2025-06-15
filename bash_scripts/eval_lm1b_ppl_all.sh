@@ -24,5 +24,6 @@ python -u -m main \
     T=${TRAIN_T} \
     eval.generate_samples=False \
     eval.low_confidence_sampling=True \
+    eval.argmax_sampling=True \
     wandb.job_type="get_ppl" \
     "wandb.name=lm1b_ppl_all"
