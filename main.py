@@ -360,16 +360,17 @@ def _ppl_eval_all(config, tokenizer):
       continue
     print(f"========== MODEL: {model} ==========")
     try:
-      _ppl_eval(config, tokenizer)
       if config.eval.low_confidence_sampling:
-        print("----- LOW CONFIDENCE PPL -----")
-        prev_path = config.eval.generated_samples_path
-        config.eval.generated_samples_path = os.path.join(
-          models_folder, model, "low_conf_samples.json")
-        config.eval.low_confidence_sampling = True
-        _gen_ppl_eval(config, tokenizer)
+        # Evaluate standard perplexity first
+        prev_flag = config.eval.low_confidence_sampling
         config.eval.low_confidence_sampling = False
-        config.eval.generated_samples_path = prev_path
+        _ppl_eval(config, tokenizer)
+        print("----- LOW CONFIDENCE PPL -----")
+        config.eval.low_confidence_sampling = True
+        _ppl_eval(config, tokenizer)
+        config.eval.low_confidence_sampling = prev_flag
+      else:
+        _ppl_eval(config, tokenizer)
     except Exception as e:
       print(f"Error evaluating {model}: {e}")
       continue
