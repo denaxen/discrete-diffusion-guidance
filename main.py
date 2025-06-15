@@ -296,11 +296,11 @@ def _gen_ppl_eval(config, tokenizer):
     counts.float() / counts.sum()).sum().item()
   with open(config.eval.generated_samples_path, 'w') as f:
     json.dump({
-     'generative_ppl': generative_ppl,
-     'entropy': entropy,
-     'generated_seqs': samples,
+      'generative_ppl': generative_ppl,
+      'entropy': entropy,
+      'generated_seqs': samples,
     },
-     f, indent=4) # type: ignore
+      f, indent=4) # type: ignore
   print(f"Entropy: {entropy:0.3f}")
   print(f"Gen. PPL: {generative_ppl:0.3f}")
 
