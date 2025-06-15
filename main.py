@@ -96,6 +96,17 @@ def _print_batch(train_ds, valid_ds, tokenizer, k=64):
     print(f'Last {k} tokens:', tokenizer.decode(last))
     print('ids:', last)
 
+def _setup_wandb(config):
+  if config.get('wandb', None) is not None:
+    import wandb
+    wandb.init(
+      project=config.wandb.project,
+      name=config.wandb.name,
+      job_type=config.wandb.job_type,
+      config=omegaconf.OmegaConf.to_object(config),
+      tags=config.wandb.get('tags', [])
+    )
+
 def _lcsc_search(config, tokenizer):
     """Run evolutionary search to merge checkpoints with LCSC and report metric.
     https://arxiv.org/pdf/2404.02241
@@ -105,16 +116,7 @@ def _lcsc_search(config, tokenizer):
     """
     logger = utils.get_logger('LCSC')
 
-    # Initialize wandb if configured
-    if config.get('wandb', None) is not None:
-        import wandb
-        wandb.init(
-            project=config.wandb.project,
-            name=config.wandb.name,
-            job_type=config.wandb.job_type,
-            config=omegaconf.OmegaConf.to_object(config),
-            tags=config.wandb.get('tags', [])
-        )
+    _setup_wandb(config)
 
     # Use checkpoints folder from the output directory instead of requiring ckpt_glob
     checkpoints_dir = os.path.join(config.checkpointing.save_dir, "checkpoints")
@@ -250,15 +252,7 @@ def _train(config, logger, tokenizer,
 
 def _gen_ppl_eval(config, tokenizer):
   # Initialize wandb if configured
-  if config.get('wandb', None) is not None:
-      import wandb
-      wandb.init(
-          project=config.wandb.project,
-          name=config.wandb.name,
-          job_type=config.wandb.job_type,
-          config=omegaconf.OmegaConf.to_object(config),
-          tags=config.wandb.get('tags', [])
-      )
+  _setup_wandb(config)
   pretrained = _load_from_checkpoint(
     config=config, tokenizer=tokenizer)
   pretrained.eval()
@@ -331,6 +325,43 @@ def _lengths_eval(config, tokenizer):
     print(f"========== EVAL LENGTH: {length} ==========")
     _ppl_eval(config, tokenizer)
 
+def _setup_model_eval_config_ppl(config, model):
+  if 'ar' in model:
+    config.parameterization = 'ar'
+    config.diffusion = 'absorbing_state'
+    config.time_conditioning = False
+    config.zero_recon_loss = False
+    config.loader.eval_batch_size = 128
+  elif 'mdlm' in model:
+    config.parameterization = 'subs'
+    config.diffusion = 'absorbing_state'
+    config.time_conditioning = False
+    config.zero_recon_loss = False
+    config.loader.eval_batch_size = 128
+  elif 'udlm' in model:
+    config.parameterization = 'd3pm'
+    config.diffusion = 'uniform'
+    config.time_conditioning = True
+    config.zero_recon_loss = True
+    config.loader.eval_batch_size = 64
+
+def _ppl_eval_all(config, tokenizer):
+  _setup_wandb(config)
+  models_folder = os.path.dirname(config.eval.checkpoint_path)
+  models = [
+        name for name in os.listdir(models_folder)
+        if os.path.isdir(os.path.join(models_folder, name))
+    ]
+  print("Found models:", models)
+  for model in models:
+    _setup_model_eval_config_ppl(config, model)
+    config.eval.checkpoint_path = os.path.join(models_folder, model, "checkpoints", "last.ckpt")
+    if not os.path.exists(config.eval.checkpoint_path):
+      continue
+    print(f"========== MODEL: {model} ==========")
+    _ppl_eval(config, tokenizer)
+
+
 @hydra.main(version_base=None, config_path='configs',
             config_name='config')
 def main(config):
@@ -364,6 +395,8 @@ def main(config):
       _lengths_eval(config, tokenizer)
   elif config.mode == 'lengths_eval':
     _lengths_eval(config, tokenizer)
+  elif config.mode == 'ppl_eval_all':
+    _ppl_eval_all(config, tokenizer)
   else:
     raise NotImplementedError(f"Mode {config.mode} not implemented.")
 
