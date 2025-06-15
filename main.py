@@ -359,7 +359,11 @@ def _ppl_eval_all(config, tokenizer):
     if not os.path.exists(config.eval.checkpoint_path):
       continue
     print(f"========== MODEL: {model} ==========")
-    _ppl_eval(config, tokenizer)
+    try:
+      _ppl_eval(config, tokenizer)
+    except Exception as e:
+      print(f"Error evaluating {model}: {e}")
+      continue
 
 
 @hydra.main(version_base=None, config_path='configs',
