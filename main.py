@@ -294,13 +294,14 @@ def _gen_ppl_eval(config, tokenizer):
     torch.tensor(tokens), return_counts=True, sorted=False)
   entropy = torch.special.entr(
     counts.float() / counts.sum()).sum().item()
-  with open(config.eval.generated_samples_path, 'w') as f:
-    json.dump({
-      'generative_ppl': generative_ppl,
-      'entropy': entropy,
-      'generated_seqs': samples,
-    },
-      f, indent=4) # type: ignore
+  if config.eval.generated_samples_path:
+    with open(config.eval.generated_samples_path, 'w') as f:
+      json.dump({
+        'generative_ppl': generative_ppl,
+        'entropy': entropy,
+        'generated_seqs': samples,
+      },
+        f, indent=4) # type: ignore
   print(f"Entropy: {entropy:0.3f}")
   print(f"Gen. PPL: {generative_ppl:0.3f}")
 
@@ -317,7 +318,6 @@ def _ppl_eval(config, tokenizer):
     config, tokenizer, skip_train=True, valid_seed=config.seed)
   ppl = eval_utils.compute_ppl(pretrained, valid_ds)
   print(f"PPL: {ppl:0.3f}")
-
 
 def _lengths_eval(config, tokenizer):
   for length in config.eval.lengths:
@@ -361,6 +361,15 @@ def _ppl_eval_all(config, tokenizer):
     print(f"========== MODEL: {model} ==========")
     try:
       _ppl_eval(config, tokenizer)
+      if config.eval.low_confidence_sampling:
+        print("----- LOW CONFIDENCE PPL -----")
+        prev_path = config.eval.generated_samples_path
+        config.eval.generated_samples_path = os.path.join(
+          models_folder, model, "low_conf_samples.json")
+        config.eval.low_confidence_sampling = True
+        _gen_ppl_eval(config, tokenizer)
+        config.eval.low_confidence_sampling = False
+        config.eval.generated_samples_path = prev_path
     except Exception as e:
       print(f"Error evaluating {model}: {e}")
       continue

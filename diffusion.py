@@ -1028,6 +1028,22 @@ class Diffusion(L.LightningModule):
       f'Diffusion type {self.diffusion} not '
       'implemented.')
 
+  def _sample_token(self, log_probs: torch.Tensor, noise: torch.Tensor) -> torch.Tensor:
+    """Sample a token using Gumbel-max trick.
+
+    If ``config.eval.low_confidence_sampling`` is set, restrict sampling to the
+    bottom ``eval.low_confidence_threshold`` cumulative probability mass.
+    """
+    if getattr(self.config.eval, 'low_confidence_sampling', False):
+      probs = log_probs.softmax(dim=-1)
+      sorted_probs, sorted_idx = probs.sort(dim=-1)
+      cum_probs = sorted_probs.cumsum(dim=-1)
+      mask_sorted = cum_probs <= self.config.eval.low_confidence_threshold
+      mask = torch.zeros_like(mask_sorted)
+      mask.scatter_(1, sorted_idx, mask_sorted)
+      log_probs = log_probs.masked_fill(~mask, -float('inf'))
+    return (log_probs + noise).argmax(-1)
+
   def sample(
     self,
     eps=1e-5):  # Note: differs from self.config.training.sampling_eps
@@ -1125,7 +1141,7 @@ class Diffusion(L.LightningModule):
         if self.config.sampling.use_float64:
           log_probs = log_probs.to(torch.float64)
         next_log_probs = log_probs[:, -1]
-        y = (next_log_probs + noise[:, i]).argmax(-1)
+        y = self._sample_token(next_log_probs, noise[:, i])
       else:
         if self.config.guidance.method == 'cfg':
           if self.config.backbone == 'dimamba':
@@ -1141,7 +1157,7 @@ class Diffusion(L.LightningModule):
               gamma=self.config.guidance.gamma,
               x=x,
               i=i)
-          y = (next_log_probs + noise[:, i]).argmax(-1)
+          y = self._sample_token(next_log_probs, noise[:, i])
         elif self.config.guidance.method == 'fudge':
           if self.config.backbone == 'dimamba':
             next_log_probs, top_indices = self._ar_fudge_denoise(
@@ -1163,7 +1179,7 @@ class Diffusion(L.LightningModule):
           y = torch.gather(
             top_indices,
             1,
-            (next_log_probs + noise[:, i]).argmax(-1).unsqueeze(1)
+            self._sample_token(next_log_probs, noise[:, i]).unsqueeze(1)
           ).squeeze(1)
         elif self.config.guidance.method == 'pplm':
           raise NotImplementedError

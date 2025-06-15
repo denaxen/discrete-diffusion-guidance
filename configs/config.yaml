@@ -67,6 +67,9 @@ eval:
   generate_samples: True
   generated_samples_path: ''
   max_samples: 50_000
+  low_confidence_sampling: False  # Run low-probability sampling during eval
+  low_confidence_threshold: 0.3   # Fraction of cumulative mass for low-conf sampling
+  generative_ppl_model_name_or_path: gpt2-large
 
 optim:
   weight_decay: 0
