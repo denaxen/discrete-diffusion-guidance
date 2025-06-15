@@ -64,6 +64,8 @@ The implemented decoding methods are as follows:
   - Classifier-based guidance (D-CBG); set `guidance=cbg`
   - Classifier-based (baseline) method of [NOS](https://arxiv.org/abs/2305.20009); set `guidance=nos`
 
+When evaluating models, Gumbel sampling is used by default. Set `eval.argmax_sampling: True` in the config to select tokens deterministically with `argmax` instead.
+
 ### Implemented Generative Models
 <a name="implemented-models"></a>
 The three modeling parameterizations

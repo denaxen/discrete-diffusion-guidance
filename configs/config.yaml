@@ -69,6 +69,7 @@ eval:
   max_samples: 50_000
   low_confidence_sampling: False  # Run low-probability sampling during eval
   low_confidence_threshold: 0.3   # Fraction of cumulative mass for low-conf sampling
+  argmax_sampling: False  # Use argmax instead of Gumbel sampling during eval
 
 optim:
   weight_decay: 0
