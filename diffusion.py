@@ -1745,6 +1745,10 @@ class Diffusion(L.LightningModule):
         mask.scatter_(dim=-1, index=sorted_idx, src=mask_sorted)
         probs = probs.masked_fill(~mask, 0.0)
 
+    if (hasattr(self.config, 'eval') and
+        getattr(self.config.eval, 'argmax_sampling', False)):
+        return probs.argmax(dim=-1)
+
     gumbel_norm = (
       1e-10
       - (torch.rand_like(probs) + 1e-10).log()).to(probs.dtype)
