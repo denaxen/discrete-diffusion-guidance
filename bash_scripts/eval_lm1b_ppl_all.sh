@@ -23,5 +23,6 @@ python -u -m main \
     training.guidance=null \
     T=${TRAIN_T} \
     eval.generate_samples=False \
+    eval.low_confidence_sampling=True \
     wandb.job_type="get_ppl" \
     "wandb.name=lm1b_ppl_all"

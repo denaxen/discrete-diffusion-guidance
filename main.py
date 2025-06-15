@@ -318,7 +318,6 @@ def _ppl_eval(config, tokenizer):
   ppl = eval_utils.compute_ppl(pretrained, valid_ds)
   print(f"PPL: {ppl:0.3f}")
 
-
 def _lengths_eval(config, tokenizer):
   for length in config.eval.lengths:
     config.model.length = length
@@ -360,7 +359,15 @@ def _ppl_eval_all(config, tokenizer):
       continue
     print(f"========== MODEL: {model} ==========")
     try:
-      _ppl_eval(config, tokenizer)
+      if config.eval.low_confidence_sampling:
+        # Evaluate standard perplexity first
+        config.eval.low_confidence_sampling = False
+        _ppl_eval(config, tokenizer)
+        print("----- LOW CONFIDENCE PPL -----")
+        config.eval.low_confidence_sampling = True
+        _ppl_eval(config, tokenizer)
+      else:
+        _ppl_eval(config, tokenizer)
     except Exception as e:
       print(f"Error evaluating {model}: {e}")
       continue
