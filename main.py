@@ -361,13 +361,11 @@ def _ppl_eval_all(config, tokenizer):
     try:
       if config.eval.low_confidence_sampling:
         # Evaluate standard perplexity first
-        prev_flag = config.eval.low_confidence_sampling
         config.eval.low_confidence_sampling = False
         _ppl_eval(config, tokenizer)
         print("----- LOW CONFIDENCE PPL -----")
         config.eval.low_confidence_sampling = True
         _ppl_eval(config, tokenizer)
-        config.eval.low_confidence_sampling = prev_flag
       else:
         _ppl_eval(config, tokenizer)
     except Exception as e:
