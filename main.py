@@ -352,6 +352,8 @@ def _ppl_eval_all(config, tokenizer):
         if os.path.isdir(os.path.join(models_folder, name))
     ]
   print("Found models:", models)
+  initial_low_confidence_sampling = config.eval.low_confidence_sampling
+  initial_argmax_sampling = config.eval.argmax_sampling
   for model in models:
     _setup_model_eval_config_ppl(config, model)
     config.eval.checkpoint_path = os.path.join(models_folder, model, "checkpoints", "last.ckpt")
@@ -389,6 +391,8 @@ def _ppl_eval_all(config, tokenizer):
         _ppl_eval(config, tokenizer)
     except Exception as e:
       print(f"Error evaluating {model}: {e}")
+      config.eval.low_confidence_sampling = initial_low_confidence_sampling
+      config.eval.argmax_sampling = initial_argmax_sampling
       continue
 
 
